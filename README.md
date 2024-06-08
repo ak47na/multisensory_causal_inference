@@ -29,28 +29,22 @@ cd causal_inference
 
 ### Segregated Estimate
 In the segregation case, the sensory inputs are processed independently. The segregated estimate for each modality is given by:
-\[
-\hat{s_v} = \frac{r_v \sigma_p^2 + \mu_p \sigma_v^2}{\sigma_v^2 + \sigma_p^2}
-\]
-\[
-\hat{s_a} = \frac{r_a \sigma_p^2 + \mu_p \sigma_a^2}{\sigma_a^2 + \sigma_p^2}
-\]
+$\hat{s_v} = \frac{r_v \sigma_p^2 + \mu_p \sigma_v^2}{\sigma_v^2 + \sigma_p^2}$
+
+$\hat{s_a} = \frac{r_a \sigma_p^2 + \mu_p \sigma_a^2}{\sigma_a^2 + \sigma_p^2}$
 
 ### Fused Estimate
 In the fusion case, the sensory inputs are combined based on their relative reliabilities. The fused estimate is:
-\[
+$
 \hat{s} = \frac{r_v \sigma_a^2 \sigma_p^2 + r_a \sigma_v^2 \sigma_p^2 + \mu_p \sigma_v^2 \sigma_a^2}{\sigma_v^2 \sigma_a^2 + \sigma_v^2 \sigma_p^2 + \sigma_a^2 \sigma_p^2}
-\]
+$
 
 ### Causal Inference Estimate
 The causal inference model incorporates the belief about whether the sensory inputs come from a common source or separate sources. The estimate is:
-\[
-\hat{s} = p(c = 1 | r_v, r_a) \hat{s}_{\text{fusion}} + p(c = 2 | r_v, r_a) \hat{s}_{\text{segregation}}
-\]
+$\hat{s} = p(c = 1 | r_v, r_a) \hat{s}_{\text{fusion}} + p(c = 2 | r_v, r_a) \hat{s}_{\text{segregation}}$
 Where the posterior probability of the common cause hypothesis is:
-\[
-p(c = 1 | r_v, r_a) = \frac{p(r_v, r_a | c = 1) \pi_c}{p(r_v, r_a | c = 1) \pi_c + p(r_v, r_a | c = 2) (1 - \pi_c)}
-\]
+
+$p(c = 1 | r_v, r_a) = \frac{p(r_v, r_a | c = 1) \pi_c}{p(r_v, r_a | c = 1) \pi_c + p(r_v, r_a | c = 2) (1 - \pi_c)}$
 
 ## Examples
 Check the `examples` folder for detailed usage examples and scripts demonstrating the application of the models.
