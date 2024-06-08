@@ -33,15 +33,16 @@ $\hat{s}_{a, c=2} = \frac{x_a \sigma_p^2 + \mu_p \sigma_a^2}{\sigma_a^2 + \sigma
 
 ### Fused Estimate
 In the fusion case, the sensory inputs are combined based on their relative reliabilities. The fused estimate is:
-$
-\hat{s} = \frac{x_v \sigma_a^2 \sigma_p^2 + x_a \sigma_v^2 \sigma_p^2 + \mu_p \sigma_v^2 \sigma_a^2}{\sigma_v^2 \sigma_a^2 + \sigma_v^2 \sigma_p^2 + \sigma_a^2 \sigma_p^2}
-$
+
+$\hat{s} = \frac{x_v \sigma_a^2 \sigma_p^2 + x_a \sigma_v^2 \sigma_p^2 + \mu_p \sigma_v^2 \sigma_a^2}{\sigma_v^2 \sigma_a^2 + \sigma_v^2 \sigma_p^2 + \sigma_a^2 \sigma_p^2}$
 
 ### Causal Inference Estimate
 The causal inference model incorporates the belief about whether the sensory inputs come from a common source or separate sources. The estimate is:
+
 $\hat{s_v} = p(c = 1 | x_v, x_a) \hat{s}_{v, c=1} + p(c = 2 | x_v, x_a) \hat{s}_{v, c=2}$
 
 $\hat{s_a} = p(c = 1 | x_v, x_a) \hat{s}_{a, c=1} + p(c = 2 | x_v, x_a) \hat{s}_{a, c=2}$
+
 Where the posterior probability of the common cause hypothesis is:
 
 $p(c = 1 | x_v, x_a) = \frac{p(x_v, x_a | c = 1) \pi_c}{p(x_v, x_a | c = 1) \pi_c + p(x_v, x_a | c = 2) (1 - \pi_c)}$
