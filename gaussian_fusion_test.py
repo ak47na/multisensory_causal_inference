@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import causal_inference
 import gaussian_causal_inference
 
-num_sim = 100000
+num_sim = 1000
 stimuli_values = np.linspace(-10, 10, 5)
 s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
 
@@ -16,13 +17,14 @@ print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
 x_v = norm.rvs(loc=s_vs, scale=sigma_v, size=(num_sim, stimuli_values.size, stimuli_values.size))
 x_a = norm.rvs(loc=s_as, scale=sigma_a, size=(num_sim, stimuli_values.size, stimuli_values.size))
 
-fused_est = gaussian_causal_inference.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
-fused_est_mu, fused_est_sigma  = gaussian_causal_inference.fusion_estimate(x_a=s_as, x_v=s_vs, 
+model = gaussian_causal_inference.GaussianCausalInference()
+sim_model = gaussian_causal_inference.GaussianCausalInference(simulate=True)
+fused_est = sim_model.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
+fused_est_mu, fused_est_sigma  = model.fusion_posterior_params(s_a=s_as, s_v=s_vs, 
                                                                            sigma_a=sigma_a, 
                                                                            sigma_v=sigma_v, 
                                                                            mu_p=mu_p, 
-                                                                           sigma_p=sigma_p,
-                                                                           return_sigma=True)
+                                                                           sigma_p=sigma_p)
 fused_est_analytic = norm.rvs(loc=fused_est_mu, scale=fused_est_sigma,
                             size=(num_sim, stimuli_values.size, stimuli_values.size))
 data_a = fused_est_analytic[:, 1,1]
@@ -32,7 +34,7 @@ plt.hist(data_b, bins=20, label='sim', alpha=0.5, edgecolor='r', histtype='step'
 plt.legend()
 plt.show()
 
-gaussian_causal_inference.plot_histograms(a=fused_est_analytic, b=fused_est,
+causal_inference.plot_histograms(a=fused_est_analytic, b=fused_est,
                                           x='Aud', y='Vis', 
                                           x_min=stimuli_values[0], 
                                           x_max=stimuli_values[-1], 
