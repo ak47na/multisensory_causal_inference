@@ -19,7 +19,7 @@ def segregation_estimate(x, mu_p, sigma, sigma_p):
     """
     return (x * sigma_p**2 + mu_p * sigma**2) / (sigma**2 + sigma_p**2)
 
-def fusion_estimate(x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p):
+def fusion_estimate(x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, return_sigma=False):
     """
     Compute the MAP estimate in the fusion case (combined sensory processing).
     The posterior p(s|x_a, x_v) \propto p(x_a, x_v|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
@@ -38,6 +38,8 @@ def fusion_estimate(x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p):
     """
     num = x_a * ((sigma_v*sigma_p)**2) + x_v * ((sigma_a*sigma_p)**2) + mu_p * ((sigma_v*sigma_a)**2)
     denom = ((sigma_v*sigma_p)**2) + ((sigma_a*sigma_p)**2) + ((sigma_v*sigma_a)**2)
+    if return_sigma:
+        return num / denom, 1/np.sqrt((1/sigma_a**2)+(1/sigma_v**2)+(1/sigma_p**2))
     return num / denom
 
 def likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
@@ -162,34 +164,33 @@ def plot_histograms(a, b, x, y, x_min, x_max, filepath, a_label='Vis', b_label='
     plt.tight_layout()
     plt.savefig(filepath)
 
+if __name__ == "__main__()":
+    # Data analysis figure2: "we simulate the system for each combination of cues for 10,000 times"
+    num_sim = 10000
+    stimuli_values = np.linspace(-10, 10, 5)
+    s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
 
-# Data analysis figure2: "we simulate the system for each combination of cues for 10,000 times"
-num_sim = 10000
-stimuli_values = np.linspace(-10, 10, 5)
-s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
-# QQ2: What is the role of s in the posterior estimation: p(\hat(s_v)|s_v, s_a)
+    sigma_v, sigma_a = 2.14, 9.2  # Sensory noise for visual and auditory inputs (9.2+-1.1)
+    mu_p, sigma_p = 0, 12.3  # Prior mean and standard deviation for the stimulus rate
+    pi_c = 0.23  # Prior probability of the common cause hypothesis
+    print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
 
-sigma_v, sigma_a = 2.14, 9.2  # Sensory noise for visual and auditory inputs (9.2+-1.1)
-mu_p, sigma_p = 0, 12.3  # Prior mean and standard deviation for the stimulus rate
-pi_c = 0.23  # Prior probability of the common cause hypothesis
-print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
+    # Generate random samples for each combination of cues
+    x_v = norm.rvs(loc=s_vs, scale=sigma_v, size=(num_sim, stimuli_values.size, stimuli_values.size))
+    x_a = norm.rvs(loc=s_as, scale=sigma_a, size=(num_sim, stimuli_values.size, stimuli_values.size))
 
-# Generate random samples for each combination of cues
-x_v = norm.rvs(loc=s_vs, scale=sigma_v, size=(num_sim, stimuli_values.size, stimuli_values.size))
-x_a = norm.rvs(loc=s_as, scale=sigma_a, size=(num_sim, stimuli_values.size, stimuli_values.size))
+    # Compute the estimates using the defined functions
+    segregated_est_v = segregation_estimate(x_v, mu_p, sigma_v, sigma_p)
+    segregated_est_a = segregation_estimate(x_a, mu_p, sigma_a, sigma_p)
+    fused_est = fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
+    causal_inference_est_v, causal_inference_est_a = bayesian_causal_inference(x_v, x_a, sigma_v,
+                                                                    sigma_a, mu_p, sigma_p, pi_c)
 
-# Compute the estimates using the defined functions
-segregated_est_v = segregation_estimate(x_v, mu_p, sigma_v, sigma_p)
-segregated_est_a = segregation_estimate(x_a, mu_p, sigma_a, sigma_p)
-fused_est = fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
-causal_inference_est_v, causal_inference_est_a = bayesian_causal_inference(x_v, x_a, sigma_v,
-                                                                sigma_a, mu_p, sigma_p, pi_c)
+    print(f'segregated_est_v={segregated_est_v.mean(axis=0)}\n')
+    print(f'segregated_est_a={segregated_est_a.mean(axis=0)}\n')
+    print(f'fused_est={fused_est.mean(axis=0)}\n')
+    print(f'causal_inference_est_v={causal_inference_est_v.mean(axis=0)}\n')
+    print(f'causal_inference_est_a={causal_inference_est_a.mean(axis=0)}\n')
 
-print(f'segregated_est_v={segregated_est_v.mean(axis=0)}\n')
-print(f'segregated_est_a={segregated_est_a.mean(axis=0)}\n')
-print(f'fused_est={fused_est.mean(axis=0)}\n')
-print(f'causal_inference_est_v={causal_inference_est_v.mean(axis=0)}\n')
-print(f'causal_inference_est_a={causal_inference_est_a.mean(axis=0)}\n')
-
-plot_histograms(causal_inference_est_v, causal_inference_est_a, x='Aud', y='Vis', 
-                x_min=stimuli_values[0], x_max=stimuli_values[-1], filepath='./fig2c.png')
+    plot_histograms(causal_inference_est_v, causal_inference_est_a, x='Aud', y='Vis', 
+                    x_min=stimuli_values[0], x_max=stimuli_values[-1], filepath='./fig2c.png')
