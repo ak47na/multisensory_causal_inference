@@ -18,7 +18,7 @@ x_v = norm.rvs(loc=s_vs, scale=sigma_v, size=(num_sim, stimuli_values.size, stim
 x_a = norm.rvs(loc=s_as, scale=sigma_a, size=(num_sim, stimuli_values.size, stimuli_values.size))
 
 model = gaussian_causal_inference.GaussianCausalInference()
-sim_model = gaussian_causal_inference.GaussianCausalInference(simulate=True)
+sim_model = gaussian_causal_inference.GaussianCausalInference(simulate=False)
 fused_est = sim_model.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
 fused_est_mu, fused_est_sigma  = model.fusion_posterior_params(s_a=s_as, s_v=s_vs, 
                                                                            sigma_a=sigma_a, 
