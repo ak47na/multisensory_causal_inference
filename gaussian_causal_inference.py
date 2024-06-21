@@ -8,21 +8,19 @@ class GaussianCausalInference(causal_inference.CausalInference):
     def __init__(self, distribution='gaussian', simulate=False):
         super().__init__(distribution)
         self.simulate = simulate
-        self.s_domain = np.linspace(-10, 10, 10000).reshape(1, 1, 1, -1)
+        self.s_domain = np.linspace(-10, 10, 1000).reshape(1, 1, 1, -1)
 
     def segregation_estimate(self, x, mu_p, sigma, sigma_p):
         return (x * sigma_p**2 + mu_p * sigma**2) / (sigma**2 + sigma_p**2)
     
-    def sim_fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p):
-        # res = sum_{s in s_domain} N(x_a; s, sigma_a) * N(x_a; s, sigma_a) * p(s)
+    def sim_likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
+        # res = \int_{s in s_domain} N(x_a; s, sigma_a) * N(x_a; s, sigma_a) * p(s)
         p_x_v_given_s = norm.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, scale=sigma_a)
         p_x_a_given_s = norm.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, scale=sigma_v)
         p_s = norm.pdf(x=self.s_domain, loc=mu_p, scale=sigma_p)
-        return np.sum(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1)
+        return np.trapz(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
 
-    def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, simulate=False, return_sigma=False):
-        if self.simulate:
-            return self.sim_fusion_estimate(x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p)
+    def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, return_sigma=False):
         num = x_a * ((sigma_v*sigma_p)**2) + x_v * ((sigma_a*sigma_p)**2) + mu_p * ((sigma_v*sigma_a)**2)
         denom = ((sigma_v*sigma_p)**2) + ((sigma_a*sigma_p)**2) + ((sigma_v*sigma_a)**2)
         if return_sigma:
@@ -39,6 +37,8 @@ class GaussianCausalInference(causal_inference.CausalInference):
         return fused_est_mu, fused_est_sigma
 
     def likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
+        if self.simulate:
+            return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         var_common = sigma_v**2 * sigma_a**2 + sigma_v**2 * sigma_p**2 + sigma_a**2 * sigma_p**2
         exp_common = ((x_v - x_a)**2 * sigma_p**2 + (x_v - mu_p)**2 * sigma_a**2 + (x_a - mu_p)**2 * sigma_v**2) / (2 * var_common)
         return np.exp(-exp_common) / (2 * np.pi * np.sqrt(var_common))
