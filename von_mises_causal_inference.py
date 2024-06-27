@@ -5,11 +5,36 @@ from scipy.special import i0
 import matplotlib.pyplot as plt
 
 def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
+    """
+    Determine the mean parameters of the product densities of two von Mises distributions.
+
+    Parameters:
+    mu1 (float): Mean direction of the first von Mises distribution.
+    kappa1 (float): Concentration parameter of the first von Mises distribution.
+    mu2 (float): Mean direction of the second von Mises distribution.
+    kappa2 (float): Concentration parameter of the second von Mises distribution.
+
+    Returns:
+    tuple: Combined mean direction and concentration parameter.
+    """
     mu = mu2 + np.arctan2(np.sin(mu1-mu2), kappa2/kappa1 + np.cos(mu1-mu2))
     k = np.sqrt((kappa1**2) + (kappa2**2) + 2*kappa1*kappa2*np.cos(mu1 - mu2))
     return mu, k
 
 def product_of_von_Mises(mu1, kappa1, mu2, kappa2, plot=False):
+    """
+    Compute the product of two von Mises densities and compare with the analytic combined distribution.
+
+    Parameters:
+    mu1 (float): Mean direction of the first von Mises distribution.
+    kappa1 (float): Concentration parameter of the first von Mises distribution.
+    mu2 (float): Mean direction of the second von Mises distribution.
+    kappa2 (float): Concentration parameter of the second von Mises distribution.
+    plot (bool): Whether to plot the normalized product and combined density. Default is False.
+
+    Returns:
+    None
+    """
     mu_c, kappa_c = get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2)
     x_domain = np.linspace(-np.pi, np.pi, 100000)
     product_pdf = vonmises.pdf(x=x_domain, loc=mu1, kappa=kappa1) * vonmises.pdf(x=x_domain, loc=mu2, kappa=kappa2)
@@ -29,6 +54,23 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
 
     def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, simulate=False, return_sigma=False):
+        """
+        Compute the MAP estimate in the fusion case (combined sensory processing).
+        The posterior p(s|x_a, x_v) \propto p(x_a, x_v|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
+        prior and p(x_a|s), p(x_v|s) as the likelihoods.
+        The prior is currently assumed uniform and its parameters are not used.
+
+        Parameters:
+        x_a (float or np.ndarray): Auditory sensory input (observed rate).
+        x_v (float or np.ndarray): Visual sensory input (observed rate).
+        sigma_a (float): Auditory sensory noise (concentration).
+        sigma_v (float): Visual sensory noise (concentration).
+        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        sigma_p (float): Prior noise of the stimulus rate.
+
+        Returns:
+        (float or np.ndarray): Fusion estimate.
+        """
         assert (simulate == False)
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
         if return_sigma:
@@ -48,7 +90,24 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         pass
 
     def sim_likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        # res = \int_{s in s_domain} N(x_a; s, sigma_a) * N(x_a; s, sigma_a) * p(s)
+        """
+        Compute the likelihood of the common cause hypothesis (signals from the same source).
+        p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
+        The function uses numeric integration.
+        The prior is currently assumed uniform and its parameters are not used.
+
+        Parameters:
+        x_v (float or np.ndarray): Visual sensory input (observed rate).
+        x_a (float or np.ndarray): Auditory sensory input (observed rate).
+        sigma_v (float): Visual sensory noise (concentration).
+        sigma_a (float): Auditory sensory noise (concentration).
+        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        sigma_p (float): Prior noise of the stimulus rate.
+
+        Returns:
+        (float or np.ndarray): Likelihood of the common cause hypothesis.
+        """
+        print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
         p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
         # p_s = 1 / len(self.s_domain)
@@ -59,20 +118,22 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         """
         Compute the likelihood of the common cause hypothesis (signals from the same source).
         p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
+        The prior is currently assumed uniform and its parameters are not used.
 
         Parameters:
         x_v (float or np.ndarray): Visual sensory input (observed rate).
         x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (kappa).
-        sigma_a (float): Auditory sensory noise (kappa).
+        sigma_v (float): Visual sensory noise (concentration).
+        sigma_a (float): Auditory sensory noise (concentration).
         mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior standard deviation of the stimulus rate.
+        sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
         (float or np.ndarray): Likelihood of the common cause hypothesis.
         """
         if self.simulate:
             return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
+        print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
         return i0(kappa_c) / (2*np.pi*i0(sigma_a)*i0(sigma_v))
 
@@ -86,7 +147,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         pass
 
 
-num_sim = 10000
+num_sim = 1000
 stimuli_values = np.linspace(-np.pi, np.pi, 5)  # Von Mises distribution is defined on the interval [-pi, pi]
 s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
 
@@ -125,7 +186,7 @@ sim_model = VonMisesCausalInference(simulate=True)
 # compute p(x_V, x_A| C=1) by simulating x_V, x_A and using equation (4) in Kording, 2007
 likelihood_common_cause = model.likelihood_common_cause(x_v=x_v, x_a=x_a, sigma_v=kappa_v, 
                                                       sigma_a=kappa_a, mu_p=mu_p, sigma_p=kappa_p)
-# compute p(x_V, x_A| C=1) = \int p(x_V|s) p(x_A|s) p(s) ds by simulating x_V, x_A and numerical int
+# compute p(x_V, x_A| C=1) = \int p(x_V|s) p(x_A|s) p(s) ds by simulating x_V, x_A and numerical integration
 sim_likelihood_common_cause = sim_model.likelihood_common_cause(x_v=x_v, x_a=x_a, 
                                                                 sigma_v=kappa_v, sigma_a=kappa_a,
                                                                 mu_p=mu_p, sigma_p=kappa_p)
