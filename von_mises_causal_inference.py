@@ -1,5 +1,6 @@
 import numpy as np
 import causal_inference
+import utils
 from scipy.stats import vonmises
 from scipy.special import i0
 import matplotlib.pyplot as plt
@@ -146,6 +147,75 @@ class VonMisesCausalInference(causal_inference.CausalInference):
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         pass
 
+    
+    def generate_samples_common_cause(self, n_means, n_samples, kappa_1, kappa_2):
+        """
+        Generate samples x_v, x_a assuming a common cause for the two sensory inputs.
+
+        Parameters:
+        n_means (int): Number of mean directions to generate.
+        n_samples (int): Number of samples per mean direction.
+        kappa_1 (np.ndarray): Concentration parameters for the first stimulus von Mises distributions.
+        kappa_2 (np.ndarray): Concentration parameters for the second stimulus von Mises distributions.
+
+        Returns:
+        tuple: Generated mean directions and samples for the two sensory inputs.
+        - s (np.ndarray): True stimulus values of size (n_means) with uniform values in [-pi, pi].
+        - x_vs (np.ndarray): Samples for the first sensory input of shape (n_means, n_samples).
+        - x_as (np.ndarray): Samples for the second sensory input of shape (n_means, n_samples).
+        """
+        # Generate s_v and s_a of size n_means with uniform values in [-pi, pi]
+        s = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+
+        # Generate x_vs and x_as with shape (n_means, n_samples) of Von Mises samples
+        x_vs = np.zeros((n_means, n_samples))
+        x_as = np.zeros((n_means, n_samples))
+
+        for i in range(n_means):
+            x_vs[i] = utils.wrap(vonmises(loc=s[i], kappa=kappa_1[i]).rvs(size=n_samples))
+            x_as[i] = utils.wrap(vonmises(loc=s[i], kappa=kappa_2[i]).rvs(size=n_samples))
+
+        return s, x_vs, x_as
+    
+    def generate_samples_two_causes(self, n_means, n_samples, kappa_1, kappa_2):
+        """
+        Generate samples x_v, x_a assuming two independent causes for the two sensory inputs.
+
+        Parameters:
+        n_means (int): Number of mean directions to generate.
+        n_samples (int): Number of samples per mean direction.
+        kappa_1 (np.ndarray): Concentration parameters for the first stimulus von Mises distributions.
+        kappa_2 (np.ndarray): Concentration parameters for the second stimulus von Mises distributions.
+
+        Returns:
+        tuple: Generated mean directions and samples for the two sensory inputs.
+        - s_v (np.ndarray): True stimulus values for the first cause of size (n_means) with uniform values in [-pi, pi].
+        - s_a (np.ndarray): True stimulus values for the second cause of size (n_means) with uniform values in [-pi, pi].
+        - x_vs (np.ndarray): Samples for the first sensory input of shape (n_means, n_samples).
+        - x_as (np.ndarray): Samples for the second sensory input of shape (n_means, n_samples).
+        """
+        # Generate s_v and s_a of size n_means with uniform values in [-pi, pi]
+        s_v = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+        s_a = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+
+        # Generate x_vs and x_as with shape (n_means, n_samples) of Von Mises samples
+        x_vs = np.zeros((n_means, n_samples))
+        x_as = np.zeros((n_means, n_samples))
+
+        for i in range(n_means):
+            x_vs[i] = utils.wrap(vonmises(loc=s_v[i], kappa=kappa_1[i]).rvs(size=n_samples))
+            x_as[i] = utils.wrap(vonmises(loc=s_a[i], kappa=kappa_2[i]).rvs(size=n_samples))
+
+        return s_v, s_a, x_vs, x_as
+
+    def generate_samples_causal_inference(self, p_common, n_means, n_samples, kappa_1, kappa_2):
+        ps = np.random.binomial(n=1, size=n_samples, p=p_common)
+        n_common_cause = sum(ps)
+        _, _, x_vs_C2, x_as_C2 = self.generate_samples_two_causes(n_means, n_samples-n_common_cause, kappa_1, kappa_2)
+        _, x_vs_C1, x_as_C1 = self.generate_samples_common_cause(n_means, n_common_cause, kappa_1, kappa_2)
+        x_vs = np.concatenate([x_vs_C1.flatten(), x_vs_C2.flatten()])
+        x_as = np.concatenate([x_as_C1.flatten(), x_as_C2.flatten()])
+        return x_vs, x_as
 
 num_sim = 1000
 stimuli_values = np.linspace(-np.pi, np.pi, 5)  # Von Mises distribution is defined on the interval [-pi, pi]
@@ -164,6 +234,14 @@ x_a = vonmises.rvs(kappa=kappa_a, loc=s_as, size=(num_sim, stimuli_values.size, 
 
 
 model = VonMisesCausalInference()
+# Generate samples (as described in "Generative model" in Kording, 2007) assuming the probability 
+# of a common cause follows a Bernoulli distribution.
+n_means = 100
+n_samples = 1000000
+x_vs, x_as = model.generate_samples_causal_inference(p_common=.28, n_means=n_means, n_samples=n_samples,
+                                                    kappa_1=np.ones(n_means),
+                                                    kappa_2=np.ones(n_means))
+utils.plot_2d_histogram(x_vs, x_as)
 
 # Compute the posterior estimates using simulation
 fused_est = model.fusion_estimate(x_v, x_a, kappa_a, kappa_v, mu_p, kappa_p)
