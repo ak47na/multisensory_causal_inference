@@ -258,6 +258,7 @@ fused_est_approx = vonmises.rvs(kappa=fused_est_kappa, loc=fused_est_mu,
 plt.hist(fused_est_approx[:, 1, 1], bins=20, label='approx', alpha=0.5, edgecolor='b', histtype='step', density=True)
 plt.hist(fused_est[:, 1, 1], bins=20, label='numeric', alpha=0.5, edgecolor='r', histtype='step', density=True)
 plt.legend()
+plt.title('Von Mises approximation and simulated distribution of mean responses')
 plt.show()
 
 sim_model = VonMisesCausalInference(simulate=True)

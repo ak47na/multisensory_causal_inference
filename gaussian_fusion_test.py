@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import causal_inference
 import gaussian_causal_inference
 
-num_sim = 10000
+num_sim = 1000
 stimuli_values = np.linspace(-10, 10, 5)
 s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
 
@@ -31,6 +31,7 @@ fused_est_analytic = norm.rvs(loc=fused_est_mu, scale=fused_est_sigma,
 fused_est = model.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
 plt.hist(fused_est_analytic[:, 1,1], bins=20, label='analytic', alpha=0.5, edgecolor='b', histtype='step', density=True)
 plt.hist(fused_est[:, 1,1], bins=20, label='sim', alpha=0.5, edgecolor='r', histtype='step', density=True)
+plt.title('Analytic and simulated distribution of mean responses')
 plt.legend()
 plt.show()
 

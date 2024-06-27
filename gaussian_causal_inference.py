@@ -84,7 +84,7 @@ class GaussianCausalInference(causal_inference.CausalInference):
         """
         Compute the likelihood of the common cause hypothesis (signals from the same source).
         p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
-        If self.simulate is True, the function uses numeric integration,otherwise, the analytic
+        If self.simulate is True, the function uses numeric integration, otherwise, the analytic
         solution is used.
 
         Parameters:
@@ -183,7 +183,7 @@ if __name__ == "__main__()":
 
     sigma_v, sigma_a = 2.14, 9.2  # Sensory noise for visual and auditory inputs (9.2+-1.1)
     mu_p, sigma_p = 0, 12.3  # Prior mean and standard deviation for the stimulus rate
-    pi_c = 0.23  # Prior probability of the common cause hypothesis
+    pi_c = 0.28  # Prior probability of the common cause hypothesis
     print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
 
     # Generate random samples for each combination of cues
