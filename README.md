@@ -19,8 +19,8 @@ Multisensory perception involves integrating information from different sensory 
 ## Installation
 Clone the repository and install the required packages:
 ```bash
-git clone https://github.com/ak47na/causal_inference.git
-cd causal_inference
+git clone https://github.com/ak47na/multisensory_causal_inference.git
+cd multisensory_causal_inference
 ```
 
 ## Models
