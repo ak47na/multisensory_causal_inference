@@ -88,7 +88,21 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         return fused_est_mu, fused_est_sigma
     
     def segregation_estimate(self, x, mu_p, sigma, sigma_p):
-        pass
+        """
+        Compute the MAP estimate in the segregation case (independent sensory processing).
+        The posterior p(s|x) \propto p(x|s)p(s), with p(s) as the prior and p(x|s) as the likelihood.
+        For uniform p(s), because the Von Mises is symmetric, the MAP is x.
+
+        Parameters:
+        x (float or np.ndarray): Sensory input (e.g., observed rate).
+        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        sigma (float): Sensory noise (standard deviation).
+        sigma_p (float): Prior standard deviation of the stimulus rate.
+
+        Returns:
+        (float or np.ndarray): Segregation estimate matching the type of x.
+        """
+        return x
 
     def sim_likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
         """
@@ -139,13 +153,75 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         return i0(kappa_c) / (2*np.pi*i0(sigma_a)*i0(sigma_v))
 
     def likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        pass
+        """
+        Compute the likelihood of the separate causes hypothesis (signals from different sources).
+        p(x_v, x_a|C=2) = \int \int p(x_v, x_a|s_v, s_a)p(s_v)p(s_a)ds_v ds_a and due to independence
+                        = (\int p(x_v|s_v)p(s_v) ds_v)(\int p(x_v|s_v)p(s_v) ds_a)
+        Currently, only uniform priors are supported, hence p(x_v, x_a|C=2) = \frac{1}{2\pi}^2
+
+        Parameters:
+        x_v (float or np.ndarray): Visual sensory input (observed rate).
+        x_a (float or np.ndarray): Auditory sensory input (observed rate).
+        sigma_v (float): Visual sensory noise (standard deviation).
+        sigma_a (float): Auditory sensory noise (standard deviation).
+        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        sigma_p (float): Prior standard deviation of the stimulus rate.
+
+        Returns:
+        (float or np.ndarray): Likelihood of the separate causes hypothesis.
+        """
+        return (1/(2*np.pi)**2)
 
     def posterior_prob_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
-        pass
+        """
+        Compute the posterior probability of the common cause hypothesis.
+        By Bayes rule P(C=1|x_v, x_a) = \frac{P(x_v, x_a| C=1) p(C=1)}{P(x_v, x_a)}
+        P(C=1|x_v, x_a) = \frac{P(x_v, x_a| C=1) p(C=1)}{P(x_v, x_a|C=1)P(C=1) + P(x_v, x_a|C=2)P(C=2)}
+        Here P(C=1) = p_common = pi_c.
+
+        Parameters:
+        x_v (float or np.ndarray): Visual sensory input (observed rate).
+        x_a (float or np.ndarray): Auditory sensory input (observed rate).
+        sigma_v (float): Visual sensory noise (standard deviation).
+        sigma_a (float): Auditory sensory noise (standard deviation).
+        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        sigma_p (float): Prior standard deviation of the stimulus rate.
+        pi_c (float or np.ndarray): Prior probability of the common cause hypothesis.
+
+        Returns:
+        float or np.ndarray: Posterior probability of the common cause hypothesis.
+        """
+        posterior_p_common = self.likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * pi_c
+        posterior_p_separate = self.likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * (1 - pi_c)
+        return posterior_p_common / (posterior_p_common + posterior_p_separate)
 
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
-        pass
+        """
+        Compute the Bayesian causal inference estimate.
+
+        Parameters:
+        x_v (float): Visual sensory input (observed rate).
+        x_a (float): Auditory sensory input (observed rate).
+        sigma_v (float): Visual sensory noise (standard deviation).
+        sigma_a (float): Auditory sensory noise (standard deviation).
+        mu_p (float): Prior mean of the stimulus rate.
+        sigma_p (float): Prior standard deviation of the stimulus rate.
+        pi_c (float): Prior probability of the common cause hypothesis.
+
+        Returns:
+        float: Bayesian causal inference estimate.
+        """
+        # P(C=1|x_v, x_a)
+        posterior_p_common = self.posterior_prob_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c)
+        # \hat{s_{v, C=2}}
+        segregated_estimate_v = self.segregation_estimate(x_v, mu_p, sigma_v, sigma_p)
+        # \hat{s_{a, C=2}}
+        segregated_estimate_a = self.segregation_estimate(x_a, mu_p, sigma_a, sigma_p)
+        # \hat{s_{v, C=1}} = \hat{s_{a, C=1}}
+        fused_estimate = self.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
+        s_v_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_v
+        s_a_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_a
+        return s_v_hat, s_a_hat
 
     
     def generate_samples_common_cause(self, n_means, n_samples, kappa_1, kappa_2):
