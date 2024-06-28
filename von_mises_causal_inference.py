@@ -430,3 +430,4 @@ if __name__ == "__main__":
                                                                     kappa_a, mu_p, kappa_p, pi_c)
     causal_inference.plot_histograms(causal_inference_est_v, causal_inference_est_a, x='Aud', y='Vis', 
                     x_min=stimuli_values[0], x_max=stimuli_values[-1], filepath='./fig2c_VM.png')
+    
