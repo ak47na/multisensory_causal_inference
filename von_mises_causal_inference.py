@@ -346,13 +346,15 @@ def generative_model():
                                                         kappa_2=np.ones(n_means))
     utils.plot_2d_histogram(x_vs, x_as)
 
-def compare_likelihoods(likelihood, sim_likelihood, plot=False):
+def compare_likelihoods(likelihood, sim_likelihood, plot=False, title=None):
     diff_likelihood=likelihood-sim_likelihood
     print(f'Max difference between analytic and simulated likelihood: {np.max(np.abs(diff_likelihood))}')
     print(f'Max analytic and simulated likelihood: {np.max(likelihood), np.max(sim_likelihood)}')
     if plot:
         plt.hist(likelihood[:, 1,1], bins=20, label='analytic', alpha=0.5, edgecolor='b', histtype='step', density=True)
         plt.hist(sim_likelihood[:, 1, 1], bins=20, label='sim', alpha=0.5, edgecolor='r', histtype='step', density=True)
+        if title is not None:
+            plt.title(title)
         plt.legend()
         plt.show()
 
@@ -367,7 +369,8 @@ def test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p):
     sim_likelihood_common_cause = sim_model.likelihood_common_cause(x_v=x_v, x_a=x_a, 
                                                                     sigma_v=kappa_v, sigma_a=kappa_a,
                                                                     mu_p=mu_p, sigma_p=kappa_p)
-    compare_likelihoods(likelihood_common_cause, sim_likelihood_common_cause, plot=True)
+    compare_likelihoods(likelihood_common_cause, sim_likelihood_common_cause, plot=True,
+                        title='Likelihood common cause (analytic vs simulation)')
 
     # compute p(x_V, x_A| C=2) by simulating x_V, x_A and using equation (5) in Kording, 2007
     likelihood_separate_cause = model.likelihood_separate_causes(x_v=x_v, x_a=x_a, sigma_v=kappa_v, 
@@ -385,7 +388,7 @@ if __name__ == "__main__":
     num_sim = 1000
     stimuli_values = np.linspace(-np.pi, np.pi, 5) 
     # Parameters for the von Mises distributions
-    kappa_v, kappa_a = 1 / (2.14), 1 / (9.2)  # Concentration parameters for visual and auditory inputs
+    kappa_v, kappa_a = 2, 1  # Concentration parameters for visual and auditory inputs
     mu_p, kappa_p = None, None  # Uniform stimulus prior
     pi_c = 0.23  # Prior probability of the common cause hypothesis
     s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
@@ -414,6 +417,16 @@ if __name__ == "__main__":
     plt.title('Von Mises approximation and simulated distribution of mean responses')
     plt.show()
     segregated_est_v = model.segregation_estimate(x=x_v, mu_p=mu_p, sigma=kappa_v, sigma_p=kappa_p)
+    # TODO: check concentration for distribution of means in Von Mises 
+    # https://en.wikipedia.org/wiki/Von_Mises_distribution#Distribution_of_the_mean
+    segregated_est_v_analytic = vonmises.rvs(kappa=kappa_v, loc=s_vs, size=(num_sim, stimuli_values.size, stimuli_values.size))
+    plt.hist(segregated_est_v_analytic[:, 1, 1], bins=20, label='analytic', alpha=0.5, edgecolor='b', histtype='step', density=True)
+    plt.hist(segregated_est_v[:, 1, 1], bins=20, label='simulation', alpha=0.5, edgecolor='r', histtype='step', density=True)
+    plt.legend()
+    plt.title('Visual optimal estimate analytic and simulated distributions of mean responses')
+    plt.show()
     segregated_est_a = model.segregation_estimate(x=x_a, mu_p=mu_p, sigma=kappa_a, sigma_p=kappa_p)
     causal_inference_est_v, causal_inference_est_a = model.bayesian_causal_inference(x_v, x_a, kappa_v,
                                                                     kappa_a, mu_p, kappa_p, pi_c)
+    causal_inference.plot_histograms(causal_inference_est_v, causal_inference_est_a, x='Aud', y='Vis', 
+                    x_min=stimuli_values[0], x_max=stimuli_values[-1], filepath='./fig2c_VM.png')
