@@ -108,7 +108,7 @@ class GaussianCausalInference(causal_inference.CausalInference):
         """
         Compute the likelihood of the separate causes hypothesis (signals from different sources).
         p(x_v, x_a|C=2) = \int \int p(x_v, x_a|s_v, s_a)p(s_v)p(s_a)ds_v ds_a and due to independence
-                        = (\int p(x_v|s_v)p(s_v) ds_v)(\int p(x_v|s_v)p(s_v) ds_a)
+                        = (\int p(x_v|s_v)p(s_v) ds_v)(\int p(x_a|s_a)p(s_a) ds_a)
 
         Parameters:
         x_v (float or np.ndarray): Visual sensory input (observed rate).
