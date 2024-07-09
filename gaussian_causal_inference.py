@@ -26,10 +26,10 @@ class GaussianCausalInference(causal_inference.CausalInference):
         """
         return (x * sigma_p**2 + mu_p * sigma**2) / (sigma**2 + sigma_p**2)
 
-    def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, return_sigma=False):
+    def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, return_sigma=False):
         """
         Compute the MAP estimate in the fusion case (combined sensory processing).
-        The posterior p(s|x_a, x_v) \propto p(x_a, x_v|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
+        The posterior p(s|x_v, x_a) \propto p(x_v, x_a|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
         prior and p(x_a|s), p(x_v|s) as the likelihoods.
 
         Parameters:
@@ -49,10 +49,10 @@ class GaussianCausalInference(causal_inference.CausalInference):
             return num / denom, 1/np.sqrt((1/sigma_a**2)+(1/sigma_v**2)+(1/sigma_p**2))
         return num / denom
     
-    def fusion_posterior_params(self, s_a, s_v, sigma_a, sigma_v, mu_p, sigma_p):
-        fused_est_mu, fused_est_sigma  = self.fusion_estimate(x_a=s_a, x_v=s_v, 
-                                                            sigma_a=sigma_a, 
+    def fusion_posterior_params(self, s_v, s_a, sigma_v, sigma_a, mu_p, sigma_p):
+        fused_est_mu, fused_est_sigma  = self.fusion_estimate(x_v=s_v, x_a=s_a, 
                                                             sigma_v=sigma_v, 
+                                                            sigma_a=sigma_a, 
                                                             mu_p=mu_p, 
                                                             sigma_p=sigma_p,
                                                             return_sigma=True)

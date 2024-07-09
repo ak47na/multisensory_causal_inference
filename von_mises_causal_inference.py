@@ -54,10 +54,10 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         self.simulate = simulate
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
 
-    def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, simulate=False, return_sigma=False):
+    def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
         """
         Compute the MAP estimate in the fusion case (combined sensory processing).
-        The posterior p(s|x_a, x_v) \propto p(x_a, x_v|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
+        The posterior p(s|x_v, x_a) \propto p(x_v, x_a|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
         prior and p(x_a|s), p(x_v|s) as the likelihoods.
         The prior is currently assumed uniform and its parameters are not used.
 
@@ -80,8 +80,8 @@ class VonMisesCausalInference(causal_inference.CausalInference):
             return mu_c, kappa_c
         return mu_c
     
-    def fusion_posterior_params(self, s_a, s_v, sigma_a, sigma_v, mu_p, sigma_p):
-        fused_est_mu, fused_est_sigma  = self.fusion_estimate(x_a=s_a, x_v=s_v, 
+    def fusion_posterior_params(self, s_v, s_a, sigma_v, sigma_a, mu_p, sigma_p):
+        fused_est_mu, fused_est_sigma  = self.fusion_estimate(x_v=s_v, x_a=s_a, 
                                                             sigma_a=sigma_a, 
                                                             sigma_v=sigma_v, 
                                                             mu_p=mu_p, 
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     num_sim = 1000
     stimuli_values = np.linspace(-np.pi, np.pi, 5) 
     # Parameters for the von Mises distributions
-    kappa_v, kappa_a = 4, 2  # Concentration parameters for visual and auditory inputs
+    kappa_v, kappa_a = 2, 1  # Concentration parameters for visual and auditory inputs
     mu_p, kappa_p = None, None  # Uniform stimulus prior
     pi_c = 0.23  # Prior probability of the common cause hypothesis
     s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
@@ -400,24 +400,23 @@ if __name__ == "__main__":
     # Causal inference loop:
     model = VonMisesCausalInference()
     # Compute the posterior estimates by simulation (find \hat{s_v}=\hat{s_a} for all sample pairs (x_v, x_a))
-    fused_est = model.fusion_estimate(x_a, x_v, kappa_a, kappa_v, mu_p, kappa_p)
-    print(f'Means for x_vs: {circmean(x_v[:, 0, 0],low=-np.pi, high=np.pi), circmean(x_v[:, 0, 1],low=-np.pi, high=np.pi), circmean(x_v[:, 0, 2],low=-np.pi, high=np.pi), circmean(x_v[:, 0, 3],low=-np.pi, high=np.pi), circmean(x_v[:, 0, 4],low=-np.pi, high=np.pi)}')
-    print(f'Means for x_as: {circmean(x_a[:, 0, 0],low=-np.pi, high=np.pi), circmean(x_a[:, 0, 1],low=-np.pi, high=np.pi), circmean(x_a[:, 0, 2],low=-np.pi, high=np.pi), circmean(x_a[:, 0, 3],low=-np.pi, high=np.pi), circmean(x_a[:, 0, 4],low=-np.pi, high=np.pi)}')
+    fused_est = model.fusion_estimate(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
     # Compute the posterior estimates using the VM approx
-    fused_est_mu, fused_est_kappa = model.fusion_posterior_params(s_a=s_as, s_v=s_vs, 
-                                                                sigma_a=kappa_a, sigma_v=kappa_v, 
+    fused_est_mu, fused_est_kappa = model.fusion_posterior_params(s_v=s_vs, s_a=s_as, 
+                                                                sigma_v=kappa_v, sigma_a=kappa_a, 
                                                                 mu_p=mu_p, sigma_p=kappa_p)
     # Generate analytic samples from the fusion posterior distribution.
     fused_est_approx = vonmises.rvs(kappa=fused_est_kappa, loc=fused_est_mu,
                                     size=(num_sim, stimuli_values.size, stimuli_values.size))
 
     # Plot histograms for comparison
-    plt.hist(fused_est_approx[:, 0, 2], bins=65, label='approx', alpha=0.5, edgecolor='b', density=True, histtype='step')
-    plt.hist(fused_est[:, 0, 2], bins=65, label='numeric', alpha=0.5, edgecolor='k', density=True, histtype='step')
-    # plt.hist(x_v[:, 0, 2], bins=65, label='x_v', alpha=0.5, edgecolor='g', density=True, histtype='step')
-    # plt.hist(x_a[:, 0, 2], bins=65, label='x_a', alpha=0.5, edgecolor='r', density=True, histtype='step')
+    v_idx, a_idx = 0, 2
+    plt.hist(fused_est_approx[:, v_idx, a_idx], bins=65, label='approx', alpha=0.5, edgecolor='b', density=True, histtype='step')
+    plt.hist(fused_est[:, v_idx, a_idx], bins=65, label='numeric', alpha=0.5, edgecolor='k', density=True, histtype='step')
+    # plt.hist(x_v[:, v_idx, a_idx], bins=65, label='x_v', alpha=0.5, edgecolor='g', density=True, histtype='step')
+    # plt.hist(x_a[:, v_idx, a_idx], bins=65, label='x_a', alpha=0.5, edgecolor='r', density=True, histtype='step')
     plt.legend()
-    plt.title(f'Von Mises approximation and simulated distribution of mean responses s_v, s_a={stimuli_values[0], stimuli_values[2]}')
+    plt.title(f'Von Mises approximation and simulated distribution of mean responses s_v, s_a={stimuli_values[v_idx], stimuli_values[a_idx]}')
     plt.show()
     segregated_est_v = model.segregation_estimate(x=x_v, mu_p=mu_p, sigma=kappa_v, sigma_p=kappa_p)
     # TODO: check concentration for distribution of means in Von Mises 

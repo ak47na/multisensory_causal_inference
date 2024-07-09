@@ -19,9 +19,9 @@ x_a = norm.rvs(loc=s_as, scale=sigma_a, size=(num_sim, stimuli_values.size, stim
 
 model = gaussian_causal_inference.GaussianCausalInference()
 sim_model = gaussian_causal_inference.GaussianCausalInference(simulate=True)
-fused_est_mu, fused_est_sigma  = model.fusion_posterior_params(s_a=s_as, s_v=s_vs, 
-                                                                           sigma_a=sigma_a, 
+fused_est_mu, fused_est_sigma  = model.fusion_posterior_params(s_v=s_vs, s_a=s_as, 
                                                                            sigma_v=sigma_v, 
+                                                                           sigma_a=sigma_a, 
                                                                            mu_p=mu_p, 
                                                                            sigma_p=sigma_p)
 # compute optimal combined estimate by sampling from posterior distribution
