@@ -10,7 +10,7 @@ class CausalInference(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def fusion_estimate(self, x_a, x_v, sigma_a, sigma_v, mu_p, sigma_p, return_sigma=False):
+    def fusion_estimate(self, x_v, x_a, sigma_a, sigma_v, mu_p, sigma_p, return_sigma=False):
         pass
 
     @abc.abstractmethod
