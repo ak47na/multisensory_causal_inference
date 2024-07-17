@@ -18,7 +18,7 @@ def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
     Returns:
     tuple: Combined mean direction and concentration parameter.
     """
-    mu = mu2 + np.arctan2(np.sin(mu1-mu2), kappa2/kappa1 + np.cos(mu1-mu2))
+    mu = utils.wrap(mu2 + np.arctan2(np.sin(mu1-mu2), kappa2/kappa1 + np.cos(mu1-mu2)))
     k = np.sqrt((kappa1**2) + (kappa2**2) + 2*kappa1*kappa2*np.cos(mu1 - mu2))
     return mu, k
 
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     num_sim = 1000
     stimuli_values = np.linspace(-np.pi, np.pi, 5) 
     # Parameters for the von Mises distributions
-    kappa_v, kappa_a = 2, 1  # Concentration parameters for visual and auditory inputs
+    kappa_v, kappa_a = 300, 280  # Concentration parameters for visual and auditory inputs
     mu_p, kappa_p = None, None  # Uniform stimulus prior
     pi_c = 0.23  # Prior probability of the common cause hypothesis
     s_vs, s_as = np.meshgrid(stimuli_values, stimuli_values, indexing='ij')
@@ -396,18 +396,18 @@ if __name__ == "__main__":
     x_v = utils.wrap(vonmises.rvs(kappa=kappa_v, loc=s_vs, size=(num_sim, stimuli_values.size, stimuli_values.size)))
     x_a = utils.wrap(vonmises.rvs(kappa=kappa_a, loc=s_as, size=(num_sim, stimuli_values.size, stimuli_values.size)))
     print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
-    test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
+    #test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
     # Causal inference loop:
     model = VonMisesCausalInference()
     # Compute the posterior estimates by simulation (find \hat{s_v}=\hat{s_a} for all sample pairs (x_v, x_a))
-    fused_est = model.fusion_estimate(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
+    fused_est = utils.wrap(model.fusion_estimate(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p))
     # Compute the posterior estimates using the VM approx
     fused_est_mu, fused_est_kappa = model.fusion_posterior_params(s_v=s_vs, s_a=s_as, 
                                                                 sigma_v=kappa_v, sigma_a=kappa_a, 
                                                                 mu_p=mu_p, sigma_p=kappa_p)
     # Generate analytic samples from the fusion posterior distribution.
-    fused_est_approx = vonmises.rvs(kappa=fused_est_kappa, loc=fused_est_mu,
-                                    size=(num_sim, stimuli_values.size, stimuli_values.size))
+    fused_est_approx = utils.wrap(vonmises.rvs(kappa=fused_est_kappa, loc=fused_est_mu,
+                                    size=(num_sim, stimuli_values.size, stimuli_values.size)))
 
     # Plot histograms for comparison
     v_idx, a_idx = 0, 2
