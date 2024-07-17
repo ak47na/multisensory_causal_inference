@@ -115,5 +115,5 @@ if __name__ == "__main__":
     print(f'Running cue combination for t={t}, s_n={s_n}, r_n={r_n}')
     kappa1, kappa2 = 250, 250
     test_repulsion_fixed_kappas(t=t, s_n=s_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, num_sim=num_sim)
-#TODO: implement mode, check use of gam_data[t, s_n], plot more of the 2 types, share
+#TODO: implement mode, check use of gam_data[t, s_n], plot more of the 2 types
 #next TODO: do the analysis using prev U^{-1}
