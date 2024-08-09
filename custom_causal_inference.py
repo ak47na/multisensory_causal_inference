@@ -30,6 +30,13 @@ class CustomCausalInference(causal_inference.CausalInference):
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises fusion estimate only implemented for uniform prior")
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
+        # TODO(ak47na): add decision rule func to dist
+        # concentration doesn't change in our assumptions
+        if self.decision_rule == 'mean':
+            mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).mean()
+        else:
+            assert (self.decision_rule == 'mode')
+            mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).mode()
         if return_sigma:
             return mu_c, kappa_c
         return mu_c
@@ -60,6 +67,11 @@ class CustomCausalInference(causal_inference.CausalInference):
         """
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
+        if self.decision_rule == 'mean':
+            mu_c = distributions.UVM(loc=x, kappa=sigma).mean()
+        else:
+            assert (self.decision_rule == 'mode')
+            mu_c = distributions.UVM(loc=x, kappa=sigma).mode()
         return x
 
     def sim_likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
@@ -81,6 +93,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         (float or np.ndarray): Likelihood of the common cause hypothesis.
         """
         print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
+        # TODO(ak47na): update the pdf and test
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
@@ -106,6 +119,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the common cause hypothesis.
         """
+        # TODO(ak47na): can we learn this?
         if self.simulate:
             return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         if (mu_p is not None) or (sigma_p is not None):
@@ -160,6 +174,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the separate causes hypothesis.
         """
+        # TODO(ak47na): same
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
         if self.simulate:
@@ -186,6 +201,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         Returns:
         float or np.ndarray: Posterior probability of the common cause hypothesis.
         """
+        # TODO(ak47na): test this doesn't change and we can inherit VMCausalInf
         posterior_p_common = self.likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * pi_c
         posterior_p_separate = self.likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * (1 - pi_c)
         return posterior_p_common / (posterior_p_common + posterior_p_separate)
@@ -206,6 +222,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         Returns:
         float: Bayesian causal inference estimate.
         """
+        # TODO(ak47na): test this doesn't change and we can inherit VMCausalInf
         # P(C=1|x_v, x_a)
         posterior_p_common = self.posterior_prob_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c)
         # \hat{s_{v, C=2}}
