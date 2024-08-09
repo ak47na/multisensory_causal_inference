@@ -49,8 +49,8 @@ def product_of_von_Mises(mu1, kappa1, mu2, kappa2, plot=False):
         plt.show()
 
 class VonMisesCausalInference(causal_inference.CausalInference):
-    def __init__(self, simulate=False):
-        super().__init__(distribution='vonMises')
+    def __init__(self, decision_rule='mean', simulate=False):
+        super().__init__(distribution='vonMises', decision_rule=decision_rule)
         self.simulate = simulate
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
 
