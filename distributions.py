@@ -41,9 +41,10 @@ class UVM(Distribution):
         else:
             sample_size = (self.num_sim, *self.loc.shape)
         samples = self.rvs(size=sample_size)
-        import pdb; pdb.set_trace()
+        
         self.interp['R_mean'] = circmean(samples, low=-np.pi, high=np.pi, axis=0)
-        self.inter['R_mode'] = utils.mode(samples)
+        self.interp['R_mode'] = utils.modes(samples, num_bins=250)
+        # import pdb; pdb.set_trace()
         if mean_file_path is not None:
             np.save(self.interp['R_mean'], mean_file_path)
         if mode_file_path is not None:
@@ -65,25 +66,24 @@ class UVM(Distribution):
         return samples
 
     def plot_decision_rules(self, decision_rules):
-        for decision_rule in decision_rules:
+        for decision_rule, color in zip(decision_rules, ['r', 'b']):
             for i, _ in enumerate(self.kappa):
                 label = None
                 if i == 0:
                     label = decision_rule
-                plt.scatter(self.loc, self.interp[f'R_{decision_rule}'][:, i], c='b', label=label)
+                plt.scatter(self.loc[:, i], self.interp[f'R_{decision_rule}'][:, i], c=color, label=label, alpha=.5)
         plt.legend()
         plt.show()
 
 
 if __name__ == "__main__":
     mus = np.linspace(-np.pi, np.pi, 250)
-    kappas = np.linspace(0.1, 500, 500)
+    kappas = np.linspace(1, 500, 500)
     mus_matrix = np.tile(mus[:, np.newaxis], (1, len(kappas)))
     kappas_matrix = np.tile(kappas, (len(mus), 1))
     interp = {'mus': mus, 'kappa': kappas}
-    num_sim = 100
+    num_sim = 10000
     uvm = UVM(loc=mus_matrix, scale=None, kappa=kappas_matrix, interp=interp, num_sim=num_sim, 
               unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl')
-    print('createddist')
     uvm.learn_mean_and_mode()
     uvm.plot_decision_rules(decision_rules=['mean', 'mode'])

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple
+from scipy.stats import mode
 
 
 def wrap(x: np.ndarray) -> np.ndarray:
@@ -72,71 +73,89 @@ def hist_bins(num: int = 51) -> Tuple[np.ndarray, float]:
     bin_width = 2 * np.pi / num
     return bin_edges, bin_width
 
-def __bin_1d(data: np.ndarray, cur_mid: float, width: float) -> np.ndarray:
-    """
-    Internal function to perform one-dimensional binning.
+# def __bin_1d(data: np.ndarray, mids: float, width: float) -> np.ndarray:
+#     """
+#     Internal function to perform one-dimensional binning.
 
-    Parameters:
-        data : jnp.ndarray
-            The one-dimensional data to be binned.
-        cur_mid : float
-            The midpoint of the bin.
-        width : float
-            The width of the bin.
+#     Parameters:
+#         data : np.ndarray
+#             The one-dimensional data to be binned.
+#         mids : np.ndarray
+#             The midpoint of the bin.
+#         width : float
+#             The width of the bin.
 
-    Returns:
-        jnp.ndarray:
-            The boolean array representing whether each data point falls into the bin.
+#     Returns:
+#         jnp.ndarray:
+#             The boolean array representing whether each data point falls into the bin.
 
-    Notes:
-        This function performs binning of the one-dimensional data into a single bin defined by the current midpoint and width.
+#     Notes:
+#         This function performs binning of the one-dimensional data into a single bin defined by the current midpoint and width.
 
-        It calculates the absolute difference between each data point and the current midpoint and compares it with the width/2
-        to determine whether the data point falls into the bin.
+#         It calculates the absolute difference between each data point and the current midpoint and compares it with the width/2
+#         to determine whether the data point falls into the bin.
 
-        This function is used internally by bin_1d to perform the actual binning operation.
-    """
-    mod_data = np.abs(wrap(data - cur_mid))
-    bin_data = np.where(mod_data < width/2,True,False)
-    return bin_data
-# _bin_1d = jit(vmap(__bin_1d,in_axes=(None,0,None)))
+#         This function is used internally by bin_1d to perform the actual binning operation.
+#     """
+#     mod_data = np.abs(wrap(data[:, np.newaxis] - mids))
+#     bin_data = np.where(mod_data < width/2,True,False)
+#     return bin_data
+# # _bin_1d = jit(vmap(__bin_1d,in_axes=(None,0,None)))
 
-def bin_1d(data: np.ndarray, mids: np.ndarray, width: float) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Bin one-dimensional data into discrete intervals.
+# def bin_1d(data: np.ndarray, mids: np.ndarray, width: float) -> Tuple[np.ndarray, np.ndarray]:
+#     """
+#     Bin one-dimensional data into discrete intervals.
 
-    Parameters:
-        data : np.ndarray
-            The one-dimensional data to be binned.
-        mids : np.ndarray
-            The midpoints of the bins represented as a one-dimensional array.
-        width : float
-            The width of each bin.
+#     Parameters:
+#         data : np.ndarray
+#             The one-dimensional data to be binned.
+#         mids : np.ndarray
+#             The midpoints of the bins represented as a one-dimensional array.
+#         width : float
+#             The width of each bin.
 
-    Returns:
-        Tuple[np.ndarray, np.ndarray]:
-            Two arrays representing the counts and the binned data.
+#     Returns:
+#         Tuple[np.ndarray, np.ndarray]:
+#             Two arrays representing the counts and the binned data.
 
-    Notes:
-        The function bins the one-dimensional data into discrete intervals defined by the midpoints and width.
+#     Notes:
+#         The function bins the one-dimensional data into discrete intervals defined by the midpoints and width.
 
-        The function uses _bin_1d internally to perform the actual binning.
+#         The function uses _bin_1d internally to perform the actual binning.
 
-        The counts array represents the number of data points falling into each bin, and the bin_data array
-        represents the boolean values indicating whether each data point falls into the corresponding bin.
+#         The counts array represents the number of data points falling into each bin, and the bin_data array
+#         represents the boolean values indicating whether each data point falls into the corresponding bin.
 
-        This function is useful for histogramming and analyzing one-dimensional data.
-    """
-    bin_data = __bin_1d(data, mids, width)
-    counts = np.sum(bin_data, axis=1)
-    return counts, bin_data
+#         This function is useful for histogramming and analyzing one-dimensional data.
+#     """
+#     bin_data = __bin_1d(data, mids, width)
+#     import pdb; pdb.set_trace()
+#     counts = np.sum(bin_data, axis=1)
+#     return counts, bin_data
 
-def modes(arr1, arr2, mids=None, kernel=10, num_edges=51):
-    # VM density mat[i, j] = VM()
-    mat = np.exp(kernel * (np.cos(np.expand_dims(arr2,0) - np.expand_dims(mids,1))-1))
-    mids, width= hist_bins(num_edges-1)
-    _, selector = bin_1d(arr1, mids, width)
-    modes = np.zeros(num_edges)
-    for i in range(num_edges):
-        modes[i] = mids[np.argmax(mat @ selector[i,:])]
-    return modes
+def modes(data: np.ndarray, num_bins: int) -> np.ndarray:
+    min_val = np.min(data)
+    max_val = np.max(data)
+    bins = np.linspace(min_val, max_val, num_bins + 1)
+    digitized = np.digitize(data, bins) - 1  # Subtract 1 to make bin indices start from 0
+    
+    # Compute the mode across the first axis (i.e., across num_points)
+    modes_indices, _ = mode(digitized, axis=0, keepdims=False)
+    # Map the bin indices back to the corresponding bin centers (optional)
+    # Compute the bin centers
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+    # Convert mode bin indices back to bin centers
+    return bin_centers[modes_indices]
+
+# def modes(arr1, arr2, num_modes, mids=None, kernel=10, num_edges=51):
+#     # VM density mat[i, j] = VM()
+#     mids, _= hist_bins(num_edges-1)
+#     mat = np.exp(kernel * (np.cos(np.expand_dims(arr2,0) - np.expand_dims(mids,1))-1))
+#     mids, width= hist_bins(num_edges-1)
+#     import pdb; pdb.set_trace()
+#     _, selector = bin_1d(arr1, mids, width)
+    
+#     modes = np.zeros(num_modes)
+#     for i in range(num_modes):
+#         modes[i] = mids[np.argmax(mat @ selector[i,:])]
+#     return modes
