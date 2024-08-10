@@ -4,9 +4,10 @@ import distributions
 
 
 class CustomCausalInference(VonMisesCausalInference):
-    def __init__(self, decision_rule='mean', simulate=False):
-        super().__init__(distribution='vonMises', decision_rule=decision_rule)
+    def __init__(self, interp=None, decision_rule='mean', simulate=False):
+        super().__init__(decision_rule=decision_rule)
         self.simulate = simulate
+        self.interp = interp
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
 
     def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
@@ -32,7 +33,7 @@ class CustomCausalInference(VonMisesCausalInference):
             raise NotImplementedError("Von Mises fusion estimate only implemented for uniform prior")
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
         # concentration doesn't change uder our assumptions, but note the dist is not VM
-        mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).decision_rule(self.decision_rule)
+        mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c, scale=None, interp=self.interp).decision_rule(self.decision_rule)
         if return_sigma:
             return mu_c, kappa_c
         return mu_c
@@ -64,7 +65,7 @@ class CustomCausalInference(VonMisesCausalInference):
         """
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
-        return distributions.UVM(loc=x, kappa=sigma).decision_rule(self.decision_rule)
+        return distributions.UVM(loc=x, kappa=sigma, scale=None, interp=self.interp).decision_rule(self.decision_rule)
 
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         """

@@ -56,7 +56,7 @@ class UnifMap:
         th = self.inverse_cdf((u_th+np.pi)/(2*np.pi))
         return th
 
-    def get_cdf_and_inverse_cdf(self):
+    def get_cdf_and_inverse_cdf(self, close_fig=True):
         # Compute the CDF
         cdf = np.cumsum(self.data['pdf']) * (self.data['grid'][1] - self.data['grid'][0])
 
@@ -64,14 +64,14 @@ class UnifMap:
         cdf /= cdf[-1]
         pdf_computed = np.diff(cdf, prepend=0) / (self.data['grid'][1] - self.data['grid'][0])
 
-        plt.plot(self.data['grid'], cdf)
-        plt.title('CDF for the shaping function')
-        plt.show()
+        # plt.plot(self.data['grid'], cdf)
+        # plt.title('CDF for the shaping function')
+        # plt.show()
 
         # Checking the CDF is correctly computed by determining the pdf from the cdf, then comparing with the shaping fn
-        plt.plot(self.data['grid'], pdf_computed)
-        plt.title('The PDF/the shaping')
-        plt.show()
+        # plt.plot(self.data['grid'], pdf_computed)
+        # plt.title('The PDF/the shaping')
+        # plt.show()
 
         # Step 3: Interpolate the inverse CDF
         inverse_cdf = interp1d(cdf, self.data['grid'], kind='linear', bounds_error=False, fill_value=(self.data['grid'][0], self.data['grid'][-1]))
@@ -85,16 +85,17 @@ class UnifMap:
         # Plot the inverse CDF
         plt.figure(figsize=(8, 6))
         p = np.linspace(0, 1, 1000)
-        plt.plot(p, inverse_cdf(p))
-        plt.xlabel('Probability')
-        plt.ylabel('X value')
-        plt.title('Inverse CDF')
-        plt.grid(True)
-        plt.show()
+        # plt.plot(p, inverse_cdf(p))
+        # plt.xlabel('Probability')
+        # plt.ylabel('X value')
+        # plt.title('Inverse CDF')
+        # plt.grid(True)
+        # plt.show()
         self.cdf = cdf
         self.inverse_cdf = inverse_cdf
         self.interpolate_pdf()
         grid_mus = np.linspace(-np.pi, np.pi, num=250)
-        plt.plot(grid_mus, self.evaluate_pdf_at_samples(grid_mus))
-        plt.title('Interpolated pdf')
-        plt.show()
+        # plt.plot(grid_mus, self.evaluate_pdf_at_samples(grid_mus))
+        # plt.title('Interpolated pdf')
+        # plt.show()
+        

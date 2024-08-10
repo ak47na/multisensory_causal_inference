@@ -12,7 +12,6 @@ def bs_vectorized(x, xs):
 
     # Use searchsorted to find the insertion points for all x values
     idx = np.searchsorted(xs, x, side='left')
-    import pdb; pdb.set_trace()
 
     # Handle edge cases
     idx[idx == 0] = 1  # If x is beyond the left end, set idx to 1
