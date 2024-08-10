@@ -1,10 +1,9 @@
-import causal_inference
 import numpy as np
-from scipy.stats import vonmises, circmean
+from von_mises_causal_inference import VonMisesCausalInference, get_cue_combined_mean_params
 import distributions
 
 
-class CustomCausalInference(causal_inference.CausalInference):
+class CustomCausalInference(VonMisesCausalInference):
     def __init__(self, decision_rule='mean', simulate=False):
         super().__init__(distribution='vonMises', decision_rule=decision_rule)
         self.simulate = simulate
@@ -12,7 +11,7 @@ class CustomCausalInference(causal_inference.CausalInference):
 
     def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
         """
-        Compute the MAP estimate in the fusion case (combined sensory processing).
+        Compute the MAP* estimate in the fusion case (combined sensory processing).
         The posterior p(s|x_v, x_a) \propto p(x_v, x_a|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
         prior and p(x_a|s), p(x_v|s) as the likelihoods.
         The prior is currently assumed uniform and its parameters are not used.
@@ -51,7 +50,8 @@ class CustomCausalInference(causal_inference.CausalInference):
         """
         Compute the MAP estimate in the segregation case (independent sensory processing).
         The posterior p(s|x) \propto p(x|s)p(s), with p(s) as the prior and p(x|s) as the likelihood.
-        For uniform p(s), because the Von Mises is symmetric, the MAP is x.
+        For uniform p(s), the decision_rule (mean or mode) is applied after converting back to angle
+        space on U^{-1}(p(x|s)) 
 
         Parameters:
         x (float or np.ndarray): Sensory input (e.g., observed rate).
@@ -64,144 +64,7 @@ class CustomCausalInference(causal_inference.CausalInference):
         """
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
-        if self.decision_rule == 'mean':
-            mu_c = distributions.UVM(loc=x, kappa=sigma).mean()
-        else:
-            assert (self.decision_rule == 'mode')
-            mu_c = distributions.UVM(loc=x, kappa=sigma).mode()
-        return x
-
-    def sim_likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        """
-        Compute the likelihood of the common cause hypothesis (signals from the same source).
-        p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
-        The function uses numeric integration.
-        The prior is currently assumed uniform and its parameters are not used.
-
-        Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior noise of the stimulus rate.
-
-        Returns:
-        (float or np.ndarray): Likelihood of the common cause hypothesis.
-        """
-        print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
-        # TODO(ak47na): update the pdf and test
-        if (mu_p is not None) or (sigma_p is not None):
-            raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
-        p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
-        p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
-        # p_s = 1 / len(self.s_domain)
-        p_s = 1 / (2*np.pi) # using uniform prior
-        return np.trapz(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
-
-    def likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        """
-        Compute the likelihood of the common cause hypothesis (signals from the same source).
-        p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
-        The prior is currently assumed uniform and its parameters are not used.
-
-        Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior noise of the stimulus rate.
-
-        Returns:
-        (float or np.ndarray): Likelihood of the common cause hypothesis.
-        """
-        # TODO(ak47na): can we learn this?
-        if self.simulate:
-            return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
-        if (mu_p is not None) or (sigma_p is not None):
-            raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
-        print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
-        mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
-        return i0(kappa_c) / (((2*np.pi)**2)*i0(sigma_a)*i0(sigma_v))
-    
-    def sim_likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        """
-        Compute the likelihood of the separate causes hypothesis (signals from different sources).
-        p(x_v, x_a|C=2) = \int \int p(x_v, x_a|s_v, s_a)p(s_v)p(s_a)ds_v ds_a and due to independence
-                        = (\int p(x_v|s_v)p(s_v) ds_v)(\int p(x_a|s_a)p(s_a) ds_a)
-        Currently, only uniform priors are supported, hence p(x_v, x_a|C=2) = \frac{1}{2\pi}^2
-        The function uses numeric integration.
-
-        Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior noise of the stimulus rate.
-
-        Returns:
-        (float or np.ndarray): Likelihood of the separate causes hypothesis.
-        """
-        if (mu_p is not None) or (sigma_p is not None):
-            raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
-        print('Computing p(x_V, x_A| C=2) using numerical integration and sampled x_V, x_A')
-        p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
-        p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
-        # p_s = 1 / len(self.s_domain)
-        p_s = 1 / (2*np.pi) # using uniform prior
-        return np.trapz(p_x_v_given_s*p_s, axis=-1, x=self.s_domain) * np.trapz(p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
-
-    def likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
-        """
-        Compute the likelihood of the separate causes hypothesis (signals from different sources).
-        p(x_v, x_a|C=2) = \int \int p(x_v, x_a|s_v, s_a)p(s_v)p(s_a)ds_v ds_a and due to independence
-                        = (\int p(x_v|s_v)p(s_v) ds_v)(\int p(x_a|s_a)p(s_a) ds_a)
-        Currently, only uniform priors are supported, hence p(x_v, x_a|C=2) = \frac{1}{2\pi}^2
-
-        Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior noise of the stimulus rate.
-
-        Returns:
-        (float or np.ndarray): Likelihood of the separate causes hypothesis.
-        """
-        # TODO(ak47na): same
-        if (mu_p is not None) or (sigma_p is not None):
-            raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
-        if self.simulate:
-            return self.sim_likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
-        print('Computing p(x_V, x_A| C=2) using analytic solution on sampled x_V, x_A')
-        return (1/(2*np.pi)**2) * np.ones_like(x_v)
-
-    def posterior_prob_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
-        """
-        Compute the posterior probability of the common cause hypothesis.
-        By Bayes rule P(C=1|x_v, x_a) = \frac{P(x_v, x_a| C=1) p(C=1)}{P(x_v, x_a)}
-        P(C=1|x_v, x_a) = \frac{P(x_v, x_a| C=1) p(C=1)}{P(x_v, x_a|C=1)P(C=1) + P(x_v, x_a|C=2)P(C=2)}
-        Here P(C=1) = p_common = pi_c.
-
-        Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma_p (float): Prior noise of the stimulus rate.
-        pi_c (float or np.ndarray): Prior probability of the common cause hypothesis.
-
-        Returns:
-        float or np.ndarray: Posterior probability of the common cause hypothesis.
-        """
-        # TODO(ak47na): test this doesn't change and we can inherit VMCausalInf
-        posterior_p_common = self.likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * pi_c
-        posterior_p_separate = self.likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * (1 - pi_c)
-        return posterior_p_common / (posterior_p_common + posterior_p_separate)
+        return distributions.UVM(loc=x, kappa=sigma).decision_rule(self.decision_rule)
 
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         """
