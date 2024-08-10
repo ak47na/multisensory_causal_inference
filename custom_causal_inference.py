@@ -1,5 +1,7 @@
 import causal_inference
 import numpy as np
+from scipy.stats import vonmises, circmean
+import distributions
 
 
 class CustomCausalInference(causal_inference.CausalInference):
@@ -30,13 +32,8 @@ class CustomCausalInference(causal_inference.CausalInference):
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises fusion estimate only implemented for uniform prior")
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
-        # TODO(ak47na): add decision rule func to dist
-        # concentration doesn't change in our assumptions
-        if self.decision_rule == 'mean':
-            mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).mean()
-        else:
-            assert (self.decision_rule == 'mode')
-            mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).mode()
+        # concentration doesn't change uder our assumptions, but note the dist is not VM
+        mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c).decision_rule(self.decision_rule)
         if return_sigma:
             return mu_c, kappa_c
         return mu_c

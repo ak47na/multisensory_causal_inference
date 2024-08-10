@@ -7,14 +7,6 @@ from scipy.special import i0
 import matplotlib.pyplot as plt
 from von_mises_causal_inference import VonMisesCausalInference
 
-def __modes(self,array1,array2,mids,store,kernel):
-        mat = np.exp(kernel * (np.cos(np.expand_dims(array2,0) - np.expand_dims(mids,1))-1))
-        mids,width= utils.hist_bins(store.shape[0]-1)
-        _,selector = utils.bin_1d(array1,mids,width)
-        for i in range(store.shape[0]):
-            store[i] = mids[np.argmax(mat @ selector[i,:])]
-        return store
-
 def repulsion_value(t, s_n, r):
     d1 = utils.circular_dist(s_n, t)
     d2 = utils.circular_dist(r, t)

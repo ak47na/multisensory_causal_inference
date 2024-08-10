@@ -100,7 +100,6 @@ def f_mu_kappa_grid_interp(mu, kappa, interp, f, return_idx=False, use_binary_se
         mu_idx = find_closest_mu_bs(mu=mu, mus=interp['mus'])
     else:
         mu_idx = find_closest_mu(mu, interp['mus'])
-    #import pdb; pdb.set_trace()
     if return_idx:
         return interp[f][mu_idx, kappa_idx], mu_idx, kappa_idx
     return interp[f][mu_idx, kappa_idx]

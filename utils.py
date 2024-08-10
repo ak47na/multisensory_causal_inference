@@ -130,3 +130,13 @@ def bin_1d(data: np.ndarray, mids: np.ndarray, width: float) -> Tuple[np.ndarray
     bin_data = __bin_1d(data, mids, width)
     counts = np.sum(bin_data, axis=1)
     return counts, bin_data
+
+def modes(arr1, arr2, mids=None, kernel=10, num_edges=51):
+    # VM density mat[i, j] = VM()
+    mat = np.exp(kernel * (np.cos(np.expand_dims(arr2,0) - np.expand_dims(mids,1))-1))
+    mids, width= hist_bins(num_edges-1)
+    _, selector = bin_1d(arr1, mids, width)
+    modes = np.zeros(num_edges)
+    for i in range(num_edges):
+        modes[i] = mids[np.argmax(mat @ selector[i,:])]
+    return modes
