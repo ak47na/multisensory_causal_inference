@@ -26,15 +26,24 @@ def test_repulsion_fixed_kappas(ut, us_n, r_n, kappa1, kappa2, decision_rule, p_
                                                     sigma_v=kappa1, sigma_a=kappa2,
                                                     mu_p=None, sigma_p=None,
                                                     pi_c=p_common))
-        for idx in indices_to_plot:
-            plt.hist(responses[-1][0][:, idx], bins=65, label='t est', alpha=0.5, edgecolor='r', density=True, histtype='step')
-            plt.hist(responses[-1][1][:, idx], bins=65, label='s_n est', alpha=0.5, edgecolor='r', density=True, histtype='step')
-            plt.axvline(x=r_n[idx], color='g', linestyle='--', linewidth=2, label='r_n')
-            plt.axvline(x=us_n[idx], color='b', linestyle='--', linewidth=2, label=f'us_n')
-            plt.axvline(x=ut[idx], color='y', linestyle='--', linewidth=2, label=f'ut')
-            plt.legend()
-            plt.title(f'Von Mises approximation and simulated distribution of {decision_rule} responses t, s_n={ut[idx], us_n[idx]}')
-            plt.show()
+        mean_t_est = circmean(responses[-1][0], low=-np.pi, high=np.pi, axis=0)
+        mean_sn_est = circmean(responses[-1][1], low=-np.pi, high=np.pi, axis=0)
+        plt.plot(mean_t_est, 'r', linestyle='--', label='t_est')
+        plt.plot(mean_sn_est, 'b', linestyle='--', label='sn_est')
+        plt.plot(r_n, color='g', label='r_n')
+        plt.plot(us_n, color='b', label=f'us_n')
+        plt.plot(ut, color='r', label=f'ut')
+        plt.legend()
+        plt.show()
+        # for idx in indices_to_plot:
+        #     plt.hist(responses[-1][0][:, idx], bins=65, label='t est', alpha=0.5, edgecolor='r', density=True, histtype='step')
+        #     plt.hist(responses[-1][1][:, idx], bins=65, label='s_n est', alpha=0.5, edgecolor='r', density=True, histtype='step')
+        #     plt.axvline(x=r_n[idx], color='g', linestyle='--', linewidth=2, label='r_n')
+        #     plt.axvline(x=us_n[idx], color='b', linestyle='--', linewidth=2, label=f'us_n')
+        #     plt.axvline(x=ut[idx], color='y', linestyle='--', linewidth=2, label=f'ut')
+        #     plt.legend()
+        #     plt.title(f'Von Mises approximation and simulated distribution of {decision_rule} responses t, s_n={ut[idx], us_n[idx]}')
+        #     plt.show()
 
 
     # plt.hist(fused_est[:, idx1, idx2], bins=65, label='fused est', alpha=0.5, edgecolor='r', density=True, histtype='step')
@@ -122,8 +131,8 @@ if __name__ == "__main__":
     if map_to_unif_space:
         s_n = unif_map.angle_space_to_unif_space(s_n)
         t = unif_map.angle_space_to_unif_space(t)
-    print(f'Running cue combination for t={t}, s_n={s_n}, r_n={r_n}')
+    print(f'Running cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
     kappa1, kappa2 = 250, 250
-    for decision_rule in ['mean', 'mode']:
+    for decision_rule in ['mode', 'mean']:
         test_repulsion_fixed_kappas(ut=t, us_n=s_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
                                     num_sim=num_sim, decision_rule=decision_rule, p_commons=[0, .2, .5])
