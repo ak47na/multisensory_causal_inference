@@ -1,10 +1,8 @@
 import numpy as np
-import causal_inference
 import uniformised_space_utils as usu
 import pickle
 import utils
 from scipy.stats import vonmises, circmean, mode
-from scipy.special import i0
 import matplotlib.pyplot as plt
 from custom_causal_inference import CustomCausalInference
 
@@ -15,66 +13,55 @@ def repulsion_value(t, s_n, r):
     return d2+d3-d1
 
 
-def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_rule, p_commons, num_sim=1000):
+def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_rule, p_commons, 
+                                num_sim=1000):
     model = CustomCausalInference(decision_rule=decision_rule)
+    # Samples in internal spaceare assumed to beVon Mises.
     t_samples = vonmises(loc=ut, kappa=kappa1).rvs(size=(num_sim, us_n.shape[0]))
     s_n_samples = vonmises(loc=us_n, kappa=kappa2).rvs(size=(num_sim, us_n.shape[0]))
     responses = []
-    indices_to_plot = np.round(np.linspace(0, len(ut)-1, 10)).astype(int)
-    for p_common in p_commons:
+    for pc_idx, p_common in enumerate(p_commons):
+        # Add "optimal" estimates for s_n and t for every pair of samples assuming P(C=1)=p_common.
         responses.append(model.bayesian_causal_inference(x_v=t_samples, x_a=s_n_samples, 
                                                     sigma_v=kappa1, sigma_a=kappa2,
                                                     mu_p=None, sigma_p=None,
                                                     pi_c=p_common))
+        # Find circular mean across "optimal" estimates for samples.
         mean_t_est = circmean(unif_map.unif_space_to_angle_space(responses[-1][0]), low=-np.pi, high=np.pi, axis=0)
         mean_sn_est = circmean(unif_map.unif_space_to_angle_space(responses[-1][1]), low=-np.pi, high=np.pi, axis=0)
-        # plt.plot(mean_t_est, 'r', linestyle='--', label='t_est')
-        # plt.plot(mean_sn_est, 'b', linestyle='--', label='sn_est')
-        # plt.plot(r_n, color='g', label='r_n')
-        # plt.plot(us_n, color='b', label=f'us_n')
-        # plt.plot(ut, color='r', label=f'ut')
-        # plt.legend()
-        # plt.title(f'Mean estimates for {decision_rule} responses')
-        # plt.show()
+        plt.plot(mean_t_est, 'r', linestyle='--', label='t_est')
+        plt.plot(mean_sn_est, 'b', linestyle='--', label='sn_est')
+        plt.plot(r_n, color='g', label='r_n')
+        plt.plot(us_n, color='b', label=f'us_n')
+        plt.plot(ut, color='r', label=f'ut')
+        plt.legend()
+        plt.title(f'Mean estimates for {decision_rule} responses, p_c={p_common}')
+        plt.savefig(f'./plots/causal_estim_{decision_rule}_{pc_idx}.png')
+        plt.clf()
+        # Plot the repulsion between circmean of "optimal" estimates and cue means.
         repuslion_t = repulsion_value(t=t,s_n=s_n, r=mean_t_est)
         repuslion_sn = repulsion_value(t=t,s_n=s_n, r=mean_sn_est)
-        plt.plot(repuslion_t, 'r', linestyle='--', label='repulsion t est', alpha=.4)
-        plt.plot(repuslion_sn, 'b', linestyle='--', label='repulsion sn est', alpha=.4)
-        plt.plot(repulsion_value(t=t, s_n=s_n, r=r_n), color='g', linestyle='--', label='repulsion r_n', alpha=.4)
-        plt.plot(s_n, color='b', label=f's_n')
-        plt.plot(t, color='r', label=f't')
+        plt.scatter(repuslion_t, 'r', linestyle='--', label='repulsion t est', alpha=.4)
+        plt.scatter(repuslion_sn, 'b', linestyle='--', label='repulsion sn est', alpha=.4)
+        plt.scatter(repulsion_value(t=t, s_n=s_n, r=r_n), color='g', linestyle='--', label='repulsion r_n', alpha=.4)
+        #plt.plot(s_n, color='b', label=f's_n')
+        #plt.plot(t, color='r', label=f't')
         plt.legend()
         plt.title(f'Repulsion for estimates using {decision_rule} responses')
-        plt.show()
-        # for idx in indices_to_plot:
-        #     plt.hist(responses[-1][0][:, idx], bins=65, label='t est', alpha=0.5, edgecolor='r', density=True, histtype='step')
-        #     plt.hist(responses[-1][1][:, idx], bins=65, label='s_n est', alpha=0.5, edgecolor='r', density=True, histtype='step')
-        #     plt.axvline(x=r_n[idx], color='g', linestyle='--', linewidth=2, label='r_n')
-        #     plt.axvline(x=us_n[idx], color='b', linestyle='--', linewidth=2, label=f'us_n')
-        #     plt.axvline(x=ut[idx], color='y', linestyle='--', linewidth=2, label=f'ut')
-        #     plt.legend()
-        #     plt.title(f'Von Mises approximation and simulated distribution of {decision_rule} responses t, s_n={ut[idx], us_n[idx]}')
-        #     plt.show()
-
-
-    # plt.hist(fused_est[:, idx1, idx2], bins=65, label='fused est', alpha=0.5, edgecolor='r', density=True, histtype='step')
-    # plt.hist(segregated_est_s_n[:, idx1, idx2], bins=65, label='seggregated est', alpha=0.5, edgecolor='b', density=True, histtype='step')
-    # plt.axvline(x=mean_fused_est[idx1, idx2], color='k', linestyle='--', linewidth=2, label='mean fusion est')
-    # plt.axvline(x=r_n[idx1, idx2], color='g', linestyle='--', linewidth=2, label='r_n')
-    # plt.axvline(x=s_n[idx1, idx2], color='b', linestyle='--', linewidth=2, label=f's_n')
-    # plt.axvline(x=t[idx1, idx2], color='y', linestyle='--', linewidth=2, label=f't')
-    # plt.axvline(x=mode_fused_est[idx1, idx2], color='m', linestyle='--', linewidth=2, label=f'mode fusion est, c={count_mode[idx1, idx2]}')
-    # plt.legend()
-    # plt.title(f'Von Mises approximation and simulated distribution of mean responses t, s_n={t[idx1, idx2], s_n[idx1, idx2]}')
-    # plt.show()
-    # # import pdb; pdb.set_trace()
-    # # mode_fused_est = fused_est.mode(axis=0)
-    # rep_mode = repulsion_value(t=t, s_n=s_n, r=mode_fused_est)
-    # rep_mean = repulsion_value(t=t, s_n=s_n, r=mean_fused_est)
-    # rep_rn = repulsion_value(t=t, s_n=s_n, r=r_n)
-    # d = utils.circular_dist(mode_fused_est[idx1, idx2], r_n[idx1, idx2])
-    # print(f'max rep_mode={rep_mode.max()}, rep_mean={rep_mean.max()}, rep_rn={rep_rn.max()}')
-    # import pdb; pdb.set_trace()
+        plt.savefig(f'./plots/repulsion_{decision_rule}_{pc_idx}.png')
+        plt.clf()
+        # Plot the distribution of "optimal" estimates for 10 uniform (u)s_n, (u)t pairs.
+        indices_to_plot = np.arange(0, len(s_n), step=len(s_n)//10, dtype=int)
+        for idx in indices_to_plot:
+            plt.hist(responses[-1][0][:, idx], bins=65, label='t est', alpha=0.5, edgecolor='r', density=True, histtype='step')
+            plt.hist(responses[-1][1][:, idx], bins=65, label='s_n est', alpha=0.5, edgecolor='m', density=True, histtype='step')
+            plt.axvline(x=r_n[idx], color='g', linestyle='--', linewidth=2, label='r_n')
+            plt.axvline(x=us_n[idx], color='b', linestyle='--', linewidth=2, label=f'us_n')
+            plt.axvline(x=ut[idx], color='y', linestyle='--', linewidth=2, label=f'ut')
+            plt.legend()
+            plt.title(f'Von Mises approximation and simulated distribution of {decision_rule} responses ut, us_n={ut[idx], us_n[idx]}')
+            plt.savefig(f'./plots/hist_responses_{decision_rule}_{idx}.png')
+            plt.clf()
 
 
 def plot_task_var(task_var, task_var_names):
@@ -111,8 +98,8 @@ def plot_task_var(task_var, task_var_names):
 def get_s_n_and_t(grid, gam_data):
     all_sns, all_ts = [], []
     r_ns = []
-    for i, t in enumerate(grid[10:-10]):
-        for j, s_n in enumerate(grid[100:-10]):
+    for i, t in enumerate(grid):
+        for j, s_n in enumerate(grid):
             r_n = gam_data['full_pdf_mat'][i, j, 2]
             d1 = utils.circular_dist(s_n, t)
             d2 = utils.circular_dist(r_n, t)
@@ -129,23 +116,28 @@ if __name__ == "__main__":
     D = 250  # grid dimension 
     angle_gam_data_path = 'D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
     unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl'
-    # Load GAM
+    # Load the GAM.
     with open(angle_gam_data_path, 'rb') as file:
         gam_data = pickle.load(file)
+    # Load the uniformising function data.
     with open(unif_fn_data_path, 'rb') as file:
             unif_fn_data = pickle.load(file)
+    # Initialise uniformising function map.
     unif_map = usu.UnifMap(data=unif_fn_data)
     unif_map.get_cdf_and_inverse_cdf()
-    map_to_unif_space = True
+
     grid = np.linspace(-np.pi, np.pi, num=D)
     s_n, t, r_n = get_s_n_and_t(grid, gam_data)
-    t_0 = np.array(t)
-    sn_0 = np.array(s_n)
-    if map_to_unif_space:
-        s_n = unif_map.angle_space_to_unif_space(s_n)
-        t = unif_map.angle_space_to_unif_space(t)
-    print(f'Running cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
+    plt.scatter(s_n, t, label='t')
+    plt.scatter(s_n, r_n, label='r_n')
+    plt.legend()
+    plt.savefig('./plots/selected_means.png')
+    plt.clf()
+    # Map means to uniformised space.
+    us_n = unif_map.angle_space_to_unif_space(s_n)
+    ut = unif_map.angle_space_to_unif_space(t)
+    print(f'Running causal cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
     kappa1, kappa2 = 250, 250
     for decision_rule in ['mode', 'mean']:
-        test_repulsion_fixed_kappas(t_0, sn_0, ut=t, us_n=s_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
+        test_repulsion_fixed_kappas(t, s_n, ut=ut, us_n=us_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
                                     num_sim=num_sim, decision_rule=decision_rule, p_commons=[0, .2, .5])
