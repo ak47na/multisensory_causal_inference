@@ -15,7 +15,7 @@ def repulsion_value(t, s_n, r):
     return d2+d3-d1
 
 
-def test_repulsion_fixed_kappas(ut, us_n, r_n, kappa1, kappa2, decision_rule, p_commons, num_sim=1000):
+def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_rule, p_commons, num_sim=1000):
     model = CustomCausalInference(decision_rule=decision_rule)
     t_samples = vonmises(loc=ut, kappa=kappa1).rvs(size=(num_sim, us_n.shape[0]))
     s_n_samples = vonmises(loc=us_n, kappa=kappa2).rvs(size=(num_sim, us_n.shape[0]))
@@ -26,14 +26,25 @@ def test_repulsion_fixed_kappas(ut, us_n, r_n, kappa1, kappa2, decision_rule, p_
                                                     sigma_v=kappa1, sigma_a=kappa2,
                                                     mu_p=None, sigma_p=None,
                                                     pi_c=p_common))
-        mean_t_est = circmean(responses[-1][0], low=-np.pi, high=np.pi, axis=0)
-        mean_sn_est = circmean(responses[-1][1], low=-np.pi, high=np.pi, axis=0)
-        plt.plot(mean_t_est, 'r', linestyle='--', label='t_est')
-        plt.plot(mean_sn_est, 'b', linestyle='--', label='sn_est')
-        plt.plot(r_n, color='g', label='r_n')
-        plt.plot(us_n, color='b', label=f'us_n')
-        plt.plot(ut, color='r', label=f'ut')
+        mean_t_est = circmean(unif_map.unif_space_to_angle_space(responses[-1][0]), low=-np.pi, high=np.pi, axis=0)
+        mean_sn_est = circmean(unif_map.unif_space_to_angle_space(responses[-1][1]), low=-np.pi, high=np.pi, axis=0)
+        # plt.plot(mean_t_est, 'r', linestyle='--', label='t_est')
+        # plt.plot(mean_sn_est, 'b', linestyle='--', label='sn_est')
+        # plt.plot(r_n, color='g', label='r_n')
+        # plt.plot(us_n, color='b', label=f'us_n')
+        # plt.plot(ut, color='r', label=f'ut')
+        # plt.legend()
+        # plt.title(f'Mean estimates for {decision_rule} responses')
+        # plt.show()
+        repuslion_t = repulsion_value(t=t,s_n=s_n, r=mean_t_est)
+        repuslion_sn = repulsion_value(t=t,s_n=s_n, r=mean_sn_est)
+        plt.plot(repuslion_t, 'r', linestyle='--', label='repulsion t est', alpha=.4)
+        plt.plot(repuslion_sn, 'b', linestyle='--', label='repulsion sn est', alpha=.4)
+        plt.plot(repulsion_value(t=t, s_n=s_n, r=r_n), color='g', linestyle='--', label='repulsion r_n', alpha=.4)
+        plt.plot(s_n, color='b', label=f's_n')
+        plt.plot(t, color='r', label=f't')
         plt.legend()
+        plt.title(f'Repulsion for estimates using {decision_rule} responses')
         plt.show()
         # for idx in indices_to_plot:
         #     plt.hist(responses[-1][0][:, idx], bins=65, label='t est', alpha=0.5, edgecolor='r', density=True, histtype='step')
@@ -128,11 +139,13 @@ if __name__ == "__main__":
     map_to_unif_space = True
     grid = np.linspace(-np.pi, np.pi, num=D)
     s_n, t, r_n = get_s_n_and_t(grid, gam_data)
+    t_0 = np.array(t)
+    sn_0 = np.array(s_n)
     if map_to_unif_space:
         s_n = unif_map.angle_space_to_unif_space(s_n)
         t = unif_map.angle_space_to_unif_space(t)
     print(f'Running cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
     kappa1, kappa2 = 250, 250
     for decision_rule in ['mode', 'mean']:
-        test_repulsion_fixed_kappas(ut=t, us_n=s_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
+        test_repulsion_fixed_kappas(t_0, sn_0, ut=t, us_n=s_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
                                     num_sim=num_sim, decision_rule=decision_rule, p_commons=[0, .2, .5])
