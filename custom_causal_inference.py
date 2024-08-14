@@ -32,7 +32,8 @@ class CustomCausalInference(VonMisesCausalInference):
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises fusion estimate only implemented for uniform prior")
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
-        # concentration doesn't change uder our assumptions, but note the dist is not VM
+        # Map the posterior distribution VM(mu_c, kappa_c) to angle space
+        # Concentration doesn't change uder our assumptions, but note the dist is not VM.
         mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c, scale=None, interp=self.interp).decision_rule(self.decision_rule)
         if return_sigma:
             return mu_c, kappa_c
@@ -83,8 +84,7 @@ class CustomCausalInference(VonMisesCausalInference):
         Returns:
         float: Bayesian causal inference estimate.
         """
-        # TODO(ak47na): test this doesn't change and we can inherit VMCausalInf
-        # P(C=1|x_v, x_a)
+        # P(C=1|x_v, x_a) (unchanged by the uniformising map as the integration is in internal space)
         posterior_p_common = self.posterior_prob_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c)
         # \hat{s_{v, C=2}}
         segregated_estimate_v = self.segregation_estimate(x_v, mu_p, sigma_v, sigma_p)

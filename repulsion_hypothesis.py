@@ -41,9 +41,9 @@ def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_
         # Plot the repulsion between circmean of "optimal" estimates and cue means.
         repuslion_t = repulsion_value(t=t,s_n=s_n, r=mean_t_est)
         repuslion_sn = repulsion_value(t=t,s_n=s_n, r=mean_sn_est)
-        plt.scatter(repuslion_t, 'r', linestyle='--', label='repulsion t est', alpha=.4)
-        plt.scatter(repuslion_sn, 'b', linestyle='--', label='repulsion sn est', alpha=.4)
-        plt.scatter(repulsion_value(t=t, s_n=s_n, r=r_n), color='g', linestyle='--', label='repulsion r_n', alpha=.4)
+        plt.scatter(repuslion_t, 'r', label='repulsion t est', alpha=.4)
+        plt.scatter(repuslion_sn, 'b', label='repulsion sn est', alpha=.4)
+        plt.scatter(repulsion_value(t=t, s_n=s_n, r=r_n), color='g', label='repulsion r_n', alpha=.4)
         #plt.plot(s_n, color='b', label=f's_n')
         #plt.plot(t, color='r', label=f't')
         plt.legend()
