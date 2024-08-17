@@ -49,7 +49,6 @@ def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_
             mean_sn_est = circmean(unif_map.unif_space_to_angle_space(response_dict[decision_rule][-1][1]), low=-np.pi, high=np.pi, axis=0)
             repuslion_t = repulsion_value(t=t,s=s_n, r=mean_t_est, title='mean_t_est')
             repuslion_sn = repulsion_value(t=t,s=s_n, r=mean_sn_est, title='mean_sn_est')
-            #import pdb; pdb.set_trace()
             plt.scatter(s_n, mean_t_est, c='m', label='t_est', marker='x')
             plt.scatter(s_n, mean_sn_est, c='c', label='sn_est', marker='x')
             plt.scatter(s_n, repuslion_t, c='r', label='repulsion t est', alpha=.4)
