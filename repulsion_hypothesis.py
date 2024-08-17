@@ -162,6 +162,6 @@ if __name__ == "__main__":
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
     print(f'Running causal cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
-    kappa1, kappa2 = 250, 250
+    kappa1, kappa2 = 75, 150
     test_repulsion_fixed_kappas(t, s_n, ut=ut, us_n=us_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
                                     num_sim=num_sim, decision_rules=['mode', 'mean'], p_commons=[0, .2, .5])

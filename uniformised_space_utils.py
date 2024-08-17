@@ -98,4 +98,3 @@ class UnifMap:
         # plt.plot(grid_mus, self.evaluate_pdf_at_samples(grid_mus))
         # plt.title('Interpolated pdf')
         # plt.show()
-        

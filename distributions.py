@@ -61,7 +61,6 @@ class UVM(Distribution):
         
         self.interp['R_mean'] = circmean(samples, low=-np.pi, high=np.pi, axis=0)
         self.interp['R_mode'] = utils.modes(samples, num_bins=250)
-        # import pdb; pdb.set_trace()
         if mean_file_path is not None:
             np.save(mean_file_path, self.interp['R_mean'])
         if mode_file_path is not None:

@@ -158,7 +158,6 @@ class VonMisesCausalInference(causal_inference.CausalInference):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
         print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
-        # import pdb; pdb.set_trace()
         if use_log:
             bessels_ratio = np.log(i0(kappa_c)) - np.log(i0(sigma_a)) - np.log(i0(sigma_v))
             bessels_ratio = np.exp(bessels_ratio)
