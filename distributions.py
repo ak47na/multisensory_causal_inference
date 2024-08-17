@@ -89,15 +89,19 @@ class UVM(Distribution):
         samples = self.unif_map.unif_space_to_angle_space(samples)
         return samples
 
-    def plot_decision_rules(self, decision_rules):
-        for decision_rule, color in zip(decision_rules, ['r', 'b']):
+    def plot_decision_rules(self, decision_rules, filepath='./plots/decision_rules'):
+        col = ['r', 'b']
+        if len(decision_rules)==1:
+            col = ['b']
+        for decision_rule, color in zip(decision_rules, col):
             for i, _ in enumerate(self.kappa):
                 label = None
                 if i == 0:
                     label = decision_rule
-                plt.scatter(self.loc[:, i], self.interp[f'R_{decision_rule}'][:, i], c=color, label=label, alpha=.5)
+                plt.scatter(self.loc[:, i], self.interp[f'R_{decision_rule}'][:, i], c=color, label=label, alpha=.2)
         plt.legend()
-        plt.show()
+        plt.savefig(filepath)
+        plt.clf()
 
 
 if __name__ == "__main__":
