@@ -2,7 +2,7 @@ import numpy as np
 import uniformised_space_utils as usu
 import pickle
 import utils
-from scipy.stats import vonmises, circmean, mode
+from scipy.stats import vonmises, circmean
 import matplotlib.pyplot as plt
 from custom_causal_inference import CustomCausalInference
 
@@ -120,7 +120,7 @@ def get_s_n_and_t(grid, gam_data):
     r_ns = []
     for i, t in enumerate(grid):
         for j, s_n in enumerate(grid):
-            r_n = gam_data['full_pdf_mat'][i, j, 2]
+            r_n = gam_data['full_pdf_mat'][i, j, 0]
             d1 = utils.circular_dist(s_n, t)
             d2 = utils.circular_dist(r_n, t)
             d3 = utils.circular_dist(r_n, s_n)
@@ -162,6 +162,6 @@ if __name__ == "__main__":
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
     print(f'Running causal cue combination for t={t.shape}, s_n={s_n.shape}, r_n={r_n.shape}')
-    kappa1, kappa2 = 75, 150
+    kappa1, kappa2 = 50, 70
     test_repulsion_fixed_kappas(t, s_n, ut=ut, us_n=us_n, r_n=r_n, kappa1=kappa1, kappa2=kappa2, 
-                                    num_sim=num_sim, decision_rules=['mode', 'mean'], p_commons=[0, .2, .5])
+                                    num_sim=num_sim, decision_rules=['mode', 'mean'], p_commons=[0, .2, .5, 1])

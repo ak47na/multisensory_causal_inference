@@ -1,10 +1,10 @@
 # TODO(ak47na): if needed, refactor into an Interpolation interface and subclasses for different
 # interpolation methods
 import numpy as np
-from utils import circular_dist
+from utils import circular_dist, abs_dist, wrap
 from bisect import bisect_left
 
-def bs_vectorized(x, xs):
+def bs_vectorized(x, xs, distance_fn=abs_dist):
     if isinstance(x, float) or isinstance(x, int):
         return bs(x, xs)
     # Convert xs to a NumPy array for efficient processing
@@ -18,8 +18,8 @@ def bs_vectorized(x, xs):
     idx[idx == len(xs)] = len(xs) - 1  # If x is beyond the right end, set idx to len(xs)-1
 
     # Compute distances to the left and right neighbors
-    left_dist = np.abs(x - xs[idx - 1])
-    right_dist = np.abs(x - xs[idx])
+    left_dist = distance_fn(x, xs[idx - 1])
+    right_dist = distance_fn(x, xs[idx])
 
     # Determine whether the left or right neighbor is closer
     closest_idx = np.where(left_dist <= right_dist, idx - 1, idx)
@@ -54,6 +54,7 @@ def find_closest_mu(mu, mus):
     Find the index of the closest mu_i in mus to the given mu using circular distance.
     """
     mu_len = 1
+    mu = wrap(mu)
     if isinstance(mu, np.ndarray):
         mu_len = mu.shape
     else:
@@ -69,15 +70,12 @@ def find_closest_mu_bs(mu, mus):
     Find the index of the closest mu_i in mus to the given mu using binary search.
     mus is assumed to be sorted.
     """
-    idx_1 = bs_vectorized(mu, mus)
-    #TODO(ak47na): use np.where to remove the if statement and allow vectorization
-    if mu < 0:
-        idx_2 = bs_vectorized(2*np.pi+mu, mus)
-    else:
-        idx_2 = bs_vectorized(mu-2*np.pi, mus)
-    if circular_dist(mu, mus[idx_1]) < circular_dist(mu, mus[idx_2]):
-        return idx_1 
-    return idx_2
+    idx_1 = bs_vectorized(mu, mus, distance_fn=circular_dist)
+    idx_2 = np.where(mu < 0, bs_vectorized(2*np.pi+mu, mus, distance_fn=circular_dist),
+                     bs_vectorized(mu-2*np.pi, mus, distance_fn=circular_dist))
+    circ_dist_to_idx1 = circular_dist(mu, mus[idx_1])
+    circ_dist_to_idx2 = circular_dist(mu, mus[idx_2])
+    return np.where(circ_dist_to_idx1 <= circ_dist_to_idx2, idx_1, idx_2)
 
 def f_mu_kappa_scipy_interp(mu, kappa, interp):
     """

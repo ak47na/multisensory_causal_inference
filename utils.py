@@ -25,6 +25,9 @@ def wrap(x: np.ndarray) -> np.ndarray:
     return np.mod(x + 3 * np.pi, 2 * np.pi) - np.pi
 
 
+def abs_dist(x, y):
+    return np.abs(x-y)
+
 def circular_dist(x, y):
     """
     Calculate the circular distance between two angles x and y.
