@@ -402,7 +402,7 @@ if __name__ == "__main__":
     x_v = utils.wrap(vonmises.rvs(kappa=kappa_v, loc=s_vs, size=(num_sim, stimuli_values.size, stimuli_values.size)))
     x_a = utils.wrap(vonmises.rvs(kappa=kappa_a, loc=s_as, size=(num_sim, stimuli_values.size, stimuli_values.size)))
     print(f'Svs = {s_vs.reshape(-1)}\nSas = {s_as.reshape(-1)}\n')
-    test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
+    #test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p)
     # Causal inference loop:
     model = VonMisesCausalInference()
     # Compute the posterior estimates by simulation (find \hat{s_v}=\hat{s_a} for all sample pairs (x_v, x_a))
