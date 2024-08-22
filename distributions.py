@@ -23,6 +23,16 @@ class Distribution(ABC):
     def mode(self):
         pass
 
+def get_interp(mean_file_path='./learned_data/R_mean_250_250.npy',
+               mode_file_path='./learned_data/R_mode_250_250.npy'):
+    mus = np.linspace(-np.pi, np.pi, 250)
+    kappas = np.linspace(1, 500, 250)
+    interp = {'mus': mus, 'kappas': kappas}
+    interp['R_mean'] = np.load(mean_file_path)
+    interp['R_mode'] = np.load(mode_file_path)
+    assert isinstance(interp, dict)
+    return interp
+
 class UVM(Distribution):
     def __init__(self, loc, scale, kappa, interp=None, num_sim=1000, 
                  unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl') -> None:
@@ -32,6 +42,7 @@ class UVM(Distribution):
         self.interp = interp
         if interp is None:
             self.load_interp()
+        assert isinstance(self.interp, dict), f'type(interp)={type(interp)}'
         with open(unif_fn_data_path, 'rb') as file:
             unif_fn_data = pickle.load(file)
         self.unif_map = usu.UnifMap(data=unif_fn_data)
@@ -39,13 +50,12 @@ class UVM(Distribution):
 
     def load_interp(self, mean_file_path='./learned_data/R_mean_250_250.npy',
                     mode_file_path='./learned_data/R_mode_250_250.npy'):
-        mus = np.linspace(-np.pi, np.pi, 250)
-        kappas = np.linspace(1, 500, 250)
-        self.interp = {'mus': mus, 'kappas': kappas}
-        self.interp['R_mean'] = np.load(mean_file_path)
-        self.interp['R_mode'] = np.load(mode_file_path)
+        self.interp = get_interp(mean_file_path=mean_file_path, mode_file_path=mode_file_path)
 
     def mean(self):
+        if not isinstance(self.interp, dict):
+            print(f"Interp is not dict: {interp}")
+            self.load_interp()
         return interpolation.f_mu_kappa_grid_interp(mu=self.loc,
                                              kappa=self.kappa, 
                                              interp=self.interp, 
@@ -58,7 +68,7 @@ class UVM(Distribution):
         else:
             sample_size = (self.num_sim, *self.loc.shape)
         samples = self.rvs(size=sample_size)
-        
+        assert isinstance(interp, dict)
         self.interp['R_mean'] = circmean(samples, low=-np.pi, high=np.pi, axis=0)
         self.interp['R_mode'] = utils.modes(samples, num_bins=250)
         if mean_file_path is not None:

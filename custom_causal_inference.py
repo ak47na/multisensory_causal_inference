@@ -1,6 +1,7 @@
 import numpy as np
 from von_mises_causal_inference import VonMisesCausalInference, get_cue_combined_mean_params
 import distributions
+from utils import wrap
 
 
 class CustomCausalInference(VonMisesCausalInference):
@@ -33,8 +34,9 @@ class CustomCausalInference(VonMisesCausalInference):
             raise NotImplementedError("Von Mises fusion estimate only implemented for uniform prior")
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, kappa1=sigma_a, mu2=x_v, kappa2=sigma_v)
         # Map the posterior distribution VM(mu_c, kappa_c) to angle space
-        # Concentration doesn't change uder our assumptions, but note the dist is not VM.
-        mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c, scale=None, interp=self.interp).decision_rule(self.decision_rule)
+        # Concentration doesn't change under our assumptions, but note the distribution is not VM.
+        mu_c = distributions.UVM(loc=mu_c, kappa=kappa_c, scale=None, 
+                                 interp=self.interp).decision_rule(self.decision_rule)
         if return_sigma:
             return mu_c, kappa_c
         return mu_c
@@ -50,10 +52,10 @@ class CustomCausalInference(VonMisesCausalInference):
     
     def segregation_estimate(self, x, mu_p, sigma, sigma_p):
         """
-        Compute the MAP estimate in the segregation case (independent sensory processing).
+        Compute the MAP* estimate in the segregation case (independent sensory processing).
         The posterior p(s|x) \propto p(x|s)p(s), with p(s) as the prior and p(x|s) as the likelihood.
         For uniform p(s), the decision_rule (mean or mode) is applied after converting back to angle
-        space on U^{-1}(p(x|s)) 
+        space on U^{-1}(p(x|s)).
 
         Parameters:
         x (float or np.ndarray): Sensory input (e.g., observed rate).
@@ -66,7 +68,8 @@ class CustomCausalInference(VonMisesCausalInference):
         """
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
-        return distributions.UVM(loc=x, kappa=sigma, scale=None, interp=self.interp).decision_rule(self.decision_rule)
+        return distributions.UVM(loc=x, kappa=sigma, scale=None, 
+                                 interp=self.interp).decision_rule(self.decision_rule)
 
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         """
@@ -94,4 +97,4 @@ class CustomCausalInference(VonMisesCausalInference):
         fused_estimate = self.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         s_v_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_v
         s_a_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_a
-        return s_v_hat, s_a_hat
+        return wrap(s_v_hat), wrap(s_a_hat)

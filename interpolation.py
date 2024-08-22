@@ -92,6 +92,7 @@ def f_mu_kappa_scipy_interp(mu, kappa, interp):
     return interp(mu, kappa)[0, 0]
 
 def f_mu_kappa_grid_interp(mu, kappa, interp, f, return_idx=False, use_binary_search=False):
+    assert isinstance(interp, dict)
     kappa_idx = find_closest_kappa(kappa=kappa, kappas=interp['kappas'])
     if use_binary_search:
         mu_idx = find_closest_mu_bs(mu=mu, mus=interp['mus'])
@@ -106,7 +107,7 @@ def f_mu_kappa(mu, kappa, interp, f, interpolation_type='grid'):
     assert (f in [None, 'r', 'R', 'r_grid'])
     if interpolation_type == 'grid':
         assert (f is not None)
-        return f_mu_kappa_grid_interp(mu, kappa, interp, f)
+        return f_mu_kappa_grid_interp(mu=mu, kappa=kappa, interp=interp, f=f)
     else:
         assert (f is None)
         return f_mu_kappa_scipy_interp(mu, kappa, interp)

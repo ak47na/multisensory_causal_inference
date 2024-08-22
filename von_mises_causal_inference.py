@@ -1,7 +1,7 @@
 import numpy as np
 import causal_inference
 import utils
-from scipy.stats import vonmises, circmean
+from scipy.stats import vonmises
 from scipy.special import i0
 import matplotlib.pyplot as plt
 
@@ -267,7 +267,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         fused_estimate = self.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         s_v_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_v
         s_a_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_a
-        return s_v_hat, s_a_hat
+        return utils.wrap(s_v_hat), utils.wrap(s_a_hat)
 
     
     def generate_samples_common_cause(self, n_means, n_samples, kappa_1, kappa_2):

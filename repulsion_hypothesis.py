@@ -28,7 +28,7 @@ def repulsion_value(t, s, r, title=None, plot_d=False):
 def test_repulsion_fixed_kappas(t, s_n, ut, us_n, r_n, kappa1, kappa2, decision_rules, p_commons, 
                                 num_sim=1000):
     # Samples in internal spaceare assumed to beVon Mises.
-    t_samples = vonmises(loc=ut, kappa=kappa1).rvs(size=(num_sim, us_n.shape[0]))
+    t_samples = vonmises(loc=ut, kappa=kappa1).rvs(size=(num_sim, ut.shape[0]))
     s_n_samples = vonmises(loc=us_n, kappa=kappa2).rvs(size=(num_sim, us_n.shape[0]))
     response_dict = {}
     for decision_rule in decision_rules:
