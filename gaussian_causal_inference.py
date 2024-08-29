@@ -5,8 +5,8 @@ import causal_inference
 
 
 class GaussianCausalInference(causal_inference.CausalInference):
-    def __init__(self, distribution='gaussian', simulate=False):
-        super().__init__(distribution)
+    def __init__(self, decision_rule='mean', simulate=False):
+        super().__init__(distribution='gaussian', decision_rule=decision_rule)
         self.simulate = simulate
         self.s_domain = np.linspace(-10, 10, 1000).reshape(1, 1, 1, -1)
 

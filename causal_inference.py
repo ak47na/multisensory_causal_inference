@@ -2,8 +2,9 @@ import abc
 import matplotlib.pyplot as plt
 
 class CausalInference(abc.ABC):
-    def __init__(self, distribution='gaussian'):
+    def __init__(self, distribution='gaussian', decision_rule='mean'):
         self.distribution = distribution
+        self.decision_rule = decision_rule
 
     @abc.abstractmethod
     def segregation_estimate(self, x, mu_p, sigma, sigma_p):

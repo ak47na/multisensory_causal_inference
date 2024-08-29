@@ -1,7 +1,7 @@
 import numpy as np
 import causal_inference
 import utils
-from scipy.stats import vonmises, circmean
+from scipy.stats import vonmises
 from scipy.special import i0
 import matplotlib.pyplot as plt
 
@@ -49,8 +49,8 @@ def product_of_von_Mises(mu1, kappa1, mu2, kappa2, plot=False):
         plt.show()
 
 class VonMisesCausalInference(causal_inference.CausalInference):
-    def __init__(self, simulate=False):
-        super().__init__(distribution='vonMises')
+    def __init__(self, decision_rule='mean', simulate=False):
+        super().__init__(distribution='vonMises', decision_rule=decision_rule)
         self.simulate = simulate
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
 
@@ -135,7 +135,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         p_s = 1 / (2*np.pi) # using uniform prior
         return np.trapz(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
 
-    def likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
+    def likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, use_log=True):
         """
         Compute the likelihood of the common cause hypothesis (signals from the same source).
         p(x_v, x_a|C=1) = \int p(x_v, x_a|s)p(s)ds = \int p(x_v|s)p(x_a|s)p(s)ds
@@ -158,7 +158,12 @@ class VonMisesCausalInference(causal_inference.CausalInference):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
         print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
-        return i0(kappa_c) / (((2*np.pi)**2)*i0(sigma_a)*i0(sigma_v))
+        if use_log:
+            bessels_ratio = np.log(i0(kappa_c)) - np.log(i0(sigma_a)) - np.log(i0(sigma_v))
+            bessels_ratio = np.exp(bessels_ratio)
+        else:
+            bessels_ratio = i0(kappa_c) / (i0(sigma_a)*i0(sigma_v))
+        return bessels_ratio / ((2*np.pi)**2)
     
     def sim_likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
         """
@@ -262,7 +267,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         fused_estimate = self.fusion_estimate(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         s_v_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_v
         s_a_hat = posterior_p_common * fused_estimate + (1 - posterior_p_common) * segregated_estimate_a
-        return s_v_hat, s_a_hat
+        return utils.wrap(s_v_hat), utils.wrap(s_a_hat)
 
     
     def generate_samples_common_cause(self, n_means, n_samples, kappa_1, kappa_2):
@@ -364,7 +369,8 @@ def test_likelihoods(x_v, x_a, kappa_v, kappa_a, mu_p, kappa_p):
     sim_model = VonMisesCausalInference(simulate=True)
     # compute p(x_V, x_A| C=1) by simulating x_V, x_A and using equation (4) in Kording, 2007
     likelihood_common_cause = model.likelihood_common_cause(x_v=x_v, x_a=x_a, sigma_v=kappa_v, 
-                                                        sigma_a=kappa_a, mu_p=mu_p, sigma_p=kappa_p)
+                                                        sigma_a=kappa_a, mu_p=mu_p, sigma_p=kappa_p,
+                                                        use_log=True)
     # compute p(x_V, x_A| C=1) = \int p(x_V|s) p(x_A|s) p(s) ds by simulating x_V, x_A and numerical integration
     sim_likelihood_common_cause = sim_model.likelihood_common_cause(x_v=x_v, x_a=x_a, 
                                                                     sigma_v=kappa_v, sigma_a=kappa_a,
