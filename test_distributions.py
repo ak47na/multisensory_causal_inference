@@ -5,6 +5,32 @@ import utils
 
 import unittest
 
+def plot_samples(samples, mus, sigmas, dist):
+    # Plotting the results
+    fig, axes = plt.subplots(len(mus), len(sigmas), figsize=(15, 10))
+
+    for i in range(len(mus)):
+        for j in range(len(sigmas)):
+            ax = axes[i, j]
+
+            # Plot histogram of the samples
+            ax.hist(samples[:, i, j], bins=50, density=True, alpha=0.6, color='g')
+            
+            # Plot the theoretical normal distribution curve
+            xmin, xmax = ax.get_xlim()
+            x = np.linspace(xmin, xmax, 100)
+            if dist == 'VM':
+                p = vonmises.pdf(x,loc= mus[i], kappa=sigmas[j])
+            else: 
+                p = norm.pdf(x, loc=mus[i], scale=sigmas[j])
+            ax.plot(x, p, 'k', linewidth=2)
+            
+            title = f"VM mu={mus[i]}, kappa={sigmas[j]}"
+            ax.set_title(title)
+
+    plt.tight_layout()
+    plt.show()
+
 class TestDistributions(unittest.TestCase):
     def test_gaussian_samples(self):
         mus = np.array([-3, -1.5, 0, 1, 2])  
@@ -15,7 +41,7 @@ class TestDistributions(unittest.TestCase):
         # Generate samples using broadcasting
         samples = np.random.normal(loc=mus[:, np.newaxis], scale=sigmas[np.newaxis, :],
                                     size=(num_samples, n, m))
-
+        plot_samples(samples, mus, sigmas, dist='Gaussian')
         # Calculate empirical means and standard deviations for each combination
         empirical_means = np.mean(samples, axis=0)
         empirical_stddevs = np.std(samples, axis=0)
