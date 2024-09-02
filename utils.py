@@ -4,6 +4,55 @@ from typing import Tuple
 from scipy.stats import mode
 
 
+def get_s_n_and_t(grid, gam_data, step=1, t_index=2):
+    indices = np.arange(len(grid), step=step)
+    t, s_n = np.meshgrid(grid[indices], grid[indices], indexing='ij')
+    r_n = gam_data['full_pdf_mat'][indices, :, t_index]
+    r_n = r_n[:, indices]
+    return s_n, t, r_n
+
+
+def estimate_mu_and_kappa_von_mises(angles, axis=0):
+    """
+    Estimate the mean and concentration parameter kappa of a Von Mises distribution along the axis
+    axis of the ndarray `angles`.
+
+    Parameters:
+    angles (ndarray): Input array of angles (in radians), where the axis axis corresponds to the
+                      number of samples, and the remaining dimensions correspond to different
+                      distributions.
+
+    Returns:
+    mu(ndarray): Estimated mean parameter along the axis dimension.
+    kappa (ndarray): Estimated concentration parameter along the axis dimension.
+    """
+
+    # Compute the cosine and sine of the angles
+    cos_angles = np.cos(angles)
+    sin_angles = np.sin(angles)
+    # Sum along the axis axis
+    sum_cos = np.sum(cos_angles, axis=axis)
+    sum_sin = np.sum(sin_angles, axis=axis)
+    # Estimate the mean
+    mu = np.arctan2(sum_sin, sum_cos)
+    # Number of samples
+    N = angles.shape[0]
+    # Compute the resultant vector length R
+    R = np.sqrt(sum_cos**2 + sum_sin**2) / N
+    # Estimate kappa using the approximation
+    # Handling the small R case separately if needed
+    kappa = np.where(
+        R < 0.53,
+        2 * R + R**3 + (5 * R**5) / 6,
+        np.where(
+            R < 0.85,
+            -0.4 + 1.39 * R + 0.43 / (1 - R),
+            1 / (2 * (1 - R))
+        )
+    )
+    return mu, kappa
+
+
 def wrap(x: np.ndarray) -> np.ndarray:
     """
     Wrap the input angle(s) into the range [-pi, pi].

@@ -6,7 +6,6 @@ import utils
 import unittest
 
 def plot_samples(samples, mus, sigmas, dist):
-    # Plotting the results
     fig, axes = plt.subplots(len(mus), len(sigmas), figsize=(15, 10))
 
     for i in range(len(mus)):
@@ -52,16 +51,31 @@ class TestDistributions(unittest.TestCase):
     
     def test_von_mises_samples(self):
         mus = np.array([-3, -1, 0, 1, 2])  # Example means (length n)
-        kappas = np.array([.5, 1, 2, 3, 50, 100])  # Example standard deviations (length m)
+        kappas = np.array([.5, 1, 2, 3, 50, 100])  # Example concentrations (length m)
         num_samples = 10000  # Number of samples to generate for each distribution
 
         # Generate samples using broadcasting with 2D arrays
-        # Here, mus[:, np.newaxis] reshapes mus to (n, 1) and sigmas[np.newaxis, :] reshapes sigmas to (1, m)
+        # mus[:, np.newaxis] reshapes mus to (n, 1) and kappas[np.newaxis, :] reshapes kappas to (1, m)
         samples = vonmises.rvs(loc=mus[:, np.newaxis], kappa=kappas[np.newaxis, :], 
                                 size=(num_samples, len(mus), len(kappas)))
         est_mus, est_kappas = utils.estimate_mu_and_kappa_von_mises(samples, axis=0)
         for i, mu in enumerate(mus):
             for j, kappa in enumerate(kappas):
+                print(f'True mu, kappa={mu, kappa} vs estimated={est_mus[i,j], est_kappas[i,j]}')
+
+    def test_von_mises_samples_kappa_matrix(self):
+        mus = np.array([-3, -1, 0, 1, 2])  # Example means (length n)
+        kappas = np.array([[.5, 1, 2, 3, 50, 100],
+                           [1.2, 2, 2, 3, 20, 50],
+                           [.3, 10, 2, 3, 5, 80],
+                           [.5, 1, 2, 4, 60, 40],
+                           [1, .3, 2, 3, 50, 100]])  # Example concentrations (n, m)
+        num_samples = 10000  # Number of samples to generate for each distribution
+        samples = vonmises.rvs(loc=mus[:, np.newaxis], kappa=kappas, 
+                                size=(num_samples, len(mus), kappas.shape[1]))
+        est_mus, est_kappas = utils.estimate_mu_and_kappa_von_mises(samples, axis=0)
+        for i, mu in enumerate(mus):
+            for j, kappa in enumerate(kappas[i]):
                 print(f'True mu, kappa={mu, kappa} vs estimated={est_mus[i,j], est_kappas[i,j]}')
 
 
