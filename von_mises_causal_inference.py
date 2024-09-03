@@ -5,19 +5,23 @@ from scipy.stats import vonmises
 from scipy.special import i0
 import matplotlib.pyplot as plt
 
+
 def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
     """
     Determine the mean parameters of the product densities of two von Mises distributions.
 
     Parameters:
-    mu1 (float): Mean direction of the first von Mises distribution.
-    kappa1 (float): Concentration parameter of the first von Mises distribution.
-    mu2 (float): Mean direction of the second von Mises distribution.
-    kappa2 (float): Concentration parameter of the second von Mises distribution.
+    mu1 (float|np.ndarray): Mean direction of the first von Mises distribution.
+    kappa1 (float|np.ndarray): Concentration parameter of the first von Mises distribution.
+    mu2 (float|np.ndarray): Mean direction of the second von Mises distribution.
+    kappa2 (float|np.ndarray): Concentration parameter of the second von Mises distribution.
 
     Returns:
     tuple: Combined mean direction and concentration parameter.
     """
+    assert utils.mus_shape_match(mu1, mu2)
+    assert utils.mu_kappa_shape_match(mu1, kappa1)
+    assert utils.mu_kappa_shape_match(mu2, kappa2)
     mu = utils.wrap(mu2 + np.arctan2(np.sin(mu1-mu2), kappa2/kappa1 + np.cos(mu1-mu2)))
     k = np.sqrt((kappa1**2) + (kappa2**2) + 2*kappa1*kappa2*np.cos(mu1 - mu2))
     return mu, k
@@ -104,6 +108,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Segregation estimate matching the type of x.
         """
+        assert utils.mu_kappa_shape_match(x, sigma)
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
         return x
@@ -126,6 +131,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the common cause hypothesis.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
@@ -152,6 +160,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the common cause hypothesis.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         if self.simulate:
             return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         if (mu_p is not None) or (sigma_p is not None):
@@ -184,6 +195,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the separate causes hypothesis.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
         print('Computing p(x_V, x_A| C=2) using numerical integration and sampled x_V, x_A')
@@ -211,6 +225,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         (float or np.ndarray): Likelihood of the separate causes hypothesis.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
         if self.simulate:
@@ -237,6 +254,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         float or np.ndarray: Posterior probability of the common cause hypothesis.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         posterior_p_common = self.likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * pi_c
         posterior_p_separate = self.likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * (1 - pi_c)
         return posterior_p_common / (posterior_p_common + posterior_p_separate)
@@ -257,6 +277,9 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Returns:
         float: Bayesian causal inference estimate.
         """
+        assert utils.mus_shape_match(x_v, x_a)
+        assert utils.mu_kappa_shape_match(x_v, sigma_v)
+        assert utils.mu_kappa_shape_match(x_a, sigma_a)
         # P(C=1|x_v, x_a)
         posterior_p_common = self.posterior_prob_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c)
         # \hat{s_{v, C=2}}

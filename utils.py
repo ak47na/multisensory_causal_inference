@@ -3,6 +3,18 @@ import matplotlib.pyplot as plt
 from typing import Tuple
 from scipy.stats import mode
 
+def mu_kappa_shape_match(mu, kappa):
+    if isinstance(mu, (int, float)) or isinstance(kappa, (int, float)):
+        return True
+    if mu.ndim == kappa.ndim:
+        return (mu.shape == kappa.shape) or (mu.shape[:-1] == kappa.shape[:-1] and (mu.shape[-1] == 1))
+    return (mu.shape[1:] == kappa.shape)
+
+def mus_shape_match(mu1, mu2):
+    if isinstance(mu1, (int, float)) or isinstance(mu2, (int, float)):
+        return True
+    return (mu1.shape == mu2.shape)
+
 
 def get_s_n_and_t(grid, gam_data, step=1, t_index=2):
     indices = np.arange(len(grid), step=step)

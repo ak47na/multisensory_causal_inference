@@ -20,6 +20,15 @@ def reshape_kappa_for_sampling(kappa):
         assert (kappa.ndim == 2)
     return kappa
 
+
+def reshape_kappa_for_causal_inference(kappa, num_mus):
+    if kappa.ndim == 2:
+        assert (kappa.shape[0] == num_mus)
+    kappa = reshape_kappa_for_sampling(kappa)
+    kappa = np.tile(kappa, reps=(num_mus, 1))
+    assert (kappa.ndim == 2) and (kappa.shape[0] == num_mus)
+    return kappa
+
 class CausalEstimator:
     def __init__(self, model, angle_gam_data_path, unif_fn_data_path, mu_p=None, sigma_p=None, num_sim=10000):
         self.model = model
@@ -100,7 +109,9 @@ class CausalEstimator:
             - mean_t_est (ndarray): Circular mean estimate for t, shape (N, K).
             - mean_sn_est (ndarray): Circular mean estimate for s_n, shape (N, K).
         """
-
+        kappa1 = reshape_kappa_for_causal_inference(kappa1, num_mus=t_samples.shape[1])
+        kappa2 = reshape_kappa_for_causal_inference(kappa2, num_mus=s_n_samples.shape[1])
+        
         responses = (self.model.bayesian_causal_inference(x_v=t_samples, 
                                                         x_a=s_n_samples, 
                                                         sigma_v=kappa1, 
@@ -142,8 +153,10 @@ if __name__ == "__main__":
     us_n = causal_inference_estimator.unif_map.angle_space_to_unif_space(s_n.reshape(-1))
     print(f'Performing causal inference for ut, u_s_n of shape {ut.shape, us_n.shape}')
 
-    kappa1 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(ut), 1))
-    kappa2 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(us_n), 1))
+    # kappa1 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(ut), 1))
+    # kappa2 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(us_n), 1))
+    kappa1 = np.array([25, 100])
+    kappa2 = np.array([25, 100])
 
     # Generate samples for the simulation
     results['num_sim'] = 10000

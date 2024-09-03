@@ -3,6 +3,7 @@ import numpy as np
 from custom_causal_inference import CustomCausalInference
 from von_mises_causal_inference import get_cue_combined_mean_params
 import distributions
+import forward_models_causal_inference
 
 
 class TestCustomCausalInference(unittest.TestCase):
@@ -37,6 +38,33 @@ class TestCustomCausalInference(unittest.TestCase):
             # Test the NotImplementedError with non-uniform priors
             with self.assertRaises(NotImplementedError):
                 self.models[i].fusion_estimate(x_v, x_a, sigma_v, sigma_a, 0.5, 1.0)
+    
+    def test_fusion_estimate_variable_kappas(self):
+        x_v = np.array([1.0, 0.5]).reshape((2, 1))
+        x_a = np.array([1.5, -0.5]).reshape((2, 1))
+        kappa1 = forward_models_causal_inference.reshape_kappa_for_causal_inference(np.array([1.5, 2.0, 3.0]), num_mus=2)
+        kappa2 = forward_models_causal_inference.reshape_kappa_for_causal_inference(np.array([1.5, 2.3, .5]), num_mus=2)
+        # No prior for Von Mises distributions
+        mu_p = None
+        sigma_p = None
+
+        # Compute the fusion estimate for all [(x_v, kappa1); (x_a, kappa2)] pairs
+        mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_v, mu2=x_a, kappa1=kappa1, 
+                                                     kappa2=kappa2)
+    
+        for i, decision_rule in enumerate(self.decision_rules):
+            result = self.models[i].fusion_estimate(x_v, x_a, kappa1, kappa2, mu_p, sigma_p)
+            for x_index, _x_v in enumerate(x_v):
+                for k_index, _kappa1 in enumerate(kappa1[0]):
+                    combined_dist = distributions.UVM(loc=mu_c[x_index, k_index:k_index+1], 
+                                                      kappa=kappa_c[x_index, k_index], 
+                                                      scale=None, 
+                                                      interp=self.interp)
+                    expected_result = combined_dist.decision_rule(decision_rule)
+                    self.assertAlmostEqual(result[x_index, k_index], expected_result, delta=self.error_delta)
+            # Test the NotImplementedError with non-uniform priors
+            with self.assertRaises(NotImplementedError):
+                self.models[i].fusion_estimate(x_v, x_a, kappa1, kappa2, 0.5, 1.0)
 
     def test_fusion_posterior_params(self):
         s_v = np.array([1.0])
@@ -67,6 +95,23 @@ class TestCustomCausalInference(unittest.TestCase):
             result = self.models[i].segregation_estimate(x=x, mu_p=mu_p, sigma=kappa, sigma_p=sigma_p)
             expected_result = uvm_x.decision_rule(decision_rule)  # Expectation in this simplified case
             self.assertAlmostEqual(result, expected_result, delta=self.error_delta)
+
+            with self.assertRaises(NotImplementedError):
+                self.models[i].segregation_estimate(x=x, mu_p=0.5, sigma=kappa, sigma_p=sigma_p)
+
+    def test_segregation_estimate_variable_kappa(self):    
+        x = np.array([1.0, 0.5]).reshape((2, 1))
+        kappa = forward_models_causal_inference.reshape_kappa_for_causal_inference(np.array([1.5, 2.0, 3.0]), num_mus=2)
+        mu_p = None
+        sigma_p = None
+
+        for i, decision_rule in enumerate(self.decision_rules):
+            result = self.models[i].segregation_estimate(x=x, mu_p=mu_p, sigma=kappa, sigma_p=sigma_p)
+            for x_index, _x in enumerate(x):
+                for kappa_index, _kappa in enumerate(kappa[0]):
+                    uvm__x = distributions.UVM(loc=_x, scale=None, kappa=_kappa, interp=self.interp)
+                    expected_result = uvm__x.decision_rule(decision_rule)  # Expectation in this simplified case
+                    self.assertAlmostEqual(result[x_index, kappa_index], expected_result, delta=self.error_delta)
 
             with self.assertRaises(NotImplementedError):
                 self.models[i].segregation_estimate(x=x, mu_p=0.5, sigma=kappa, sigma_p=sigma_p)
