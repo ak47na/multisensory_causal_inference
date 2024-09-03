@@ -37,13 +37,14 @@ class CausalEstimator:
     def get_vm_samples(self, num_sim, mu_t, mu_s_n, kappa1, kappa2):
         kappa1 = reshape_kappa_for_sampling(kappa1)
         kappa2 = reshape_kappa_for_sampling(kappa2)
+        #import pdb; pdb.set_trace()
         t_samples = vonmises(loc=mu_t[:, np.newaxis], kappa=kappa1).rvs(size=(num_sim, mu_t.shape[0], kappa1.shape[1]))
         s_n_samples = vonmises(loc=mu_s_n[:, np.newaxis], kappa=kappa2).rvs(size=(num_sim, mu_s_n.shape[0], kappa2.shape[1]))
         return t_samples, s_n_samples
     
     def forward_from_means(self, mu_t, mu_s_n, p_common, kappa1, kappa2, num_sim=None):
         if num_sim is None:
-            num_sim = num_sim
+            num_sim = self.num_sim
         t_samples, s_n_samples = self.get_vm_samples(num_sim=num_sim, mu_t=mu_t, mu_s_n=mu_s_n,
                                                      kappa1=kappa1, kappa2=kappa2)
         return self.forward(t_samples=t_samples, s_n_samples=s_n_samples, kappa1=kappa1, 
@@ -87,15 +88,29 @@ if __name__ == "__main__":
     s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid, 
                                    causal_inference_estimator.gam_data,
                                    step=200)
-    us_n = causal_inference_estimator.unif_map.angle_space_to_unif_space(s_n.reshape(-1))
+    
     ut = causal_inference_estimator.unif_map.angle_space_to_unif_space(t.reshape(-1))
-    print(f'u_s_n,ut={us_n.shape, ut.shape}')
-    kappa1 = np.array([50, 70, 100, 50])
-    kappa2 = np.array([40, 60, 90, 40])
+    us_n = causal_inference_estimator.unif_map.angle_space_to_unif_space(s_n.reshape(-1))
+    print(f'Performing causal inference for ut, u_s_n of shape {ut.shape, us_n.shape}')
+
+    kappa1 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(ut), 1))
+    kappa2 = np.tile(np.array([25, 50, 75, 100, 125, 150]), reps=(len(us_n), 1))
+
+    # Generate samples for the simulation
+    results['num_sim'] = 10000
+    t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(num_sim=results['num_sim'], 
+                                                                       mu_t=ut, mu_s_n=us_n,
+                                                                       kappa1=kappa1, 
+                                                                       kappa2=kappa2)
+    results['ut'] = ut
+    results['us_n'] = us_n
     for p_common in p_commons:
-        responses, posterior_p_common, mean_t_est, mean_sn_est = causal_inference_estimator.forward_from_means(mu_t=ut,
-                                                                                                    mu_s_n=us_n,
+        responses, posterior_p_common, mean_t_est, mean_sn_est = causal_inference_estimator.forward(t_samples=t_samples,
+                                                                                                    s_n_samples=s_n_samples,
                                                                                                     p_common=p_common,
                                                                                                     kappa1=kappa1,
                                                                                                     kappa2=kappa2)
-        results.append()
+        results['responses'].append(responses)
+        results['posterior_p_common'].append(posterior_p_common)
+        results['mean_t_est'].append(mean_t_est)
+        results['mean_sn_est'].append(mean_sn_est)
