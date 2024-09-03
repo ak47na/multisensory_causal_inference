@@ -10,10 +10,13 @@ import utils
 
 def reshape_kappa_for_sampling(kappa):
     if isinstance(kappa, (int, float)):
+        # Fixed concentration for all means
         return np.array([[kappa]])
     elif kappa.ndim == 1:
+        # The same possible concentration values for all means, reshape to (1, len(kappa))
         return kappa[np.newaxis, :]
     else:
+        # Different possible concentrations for means, shape must be (len(mus), len(kappas))
         assert (kappa.ndim == 2)
     return kappa
 
@@ -35,14 +38,43 @@ class CausalEstimator:
         self.grid = np.linspace(-np.pi, np.pi, num=250)
 
     def get_vm_samples(self, num_sim, mu_t, mu_s_n, kappa1, kappa2):
+        """
+        Generate samples from Von Mises distributions for t and s_n.
+
+        Parameters:
+        num_sim (int): Number of simulations to run (i.e., the number of samples to generate).
+        mu_t (ndarray|int|float): Mean directions for the distributions of regressor t.
+        mu_s_n (ndarray|int|float): Mean directions for the distributions of s_n.
+        kappa1 (ndarray|int|float): Concentration parameters for the distributions of regressor t.
+        kappa2 (ndarray|int|float): Concentration parameters for the distributions of s_n.
+
+        Returns:
+        tuple: Two ndarrays representing internal samples for the two cues:
+            - t_samples (ndarray): Samples from the t distribution, shape (num_sim, len(mu_t), kappa1.shape[1]).
+            - s_n_samples (ndarray): Samples from the s_n distribution, shape (num_sim, len(mu_s_n), kappa2.shape[1]).
+        """
         kappa1 = reshape_kappa_for_sampling(kappa1)
         kappa2 = reshape_kappa_for_sampling(kappa2)
-        #import pdb; pdb.set_trace()
         t_samples = vonmises(loc=mu_t[:, np.newaxis], kappa=kappa1).rvs(size=(num_sim, mu_t.shape[0], kappa1.shape[1]))
         s_n_samples = vonmises(loc=mu_s_n[:, np.newaxis], kappa=kappa2).rvs(size=(num_sim, mu_s_n.shape[0], kappa2.shape[1]))
         return t_samples, s_n_samples
     
-    def forward_from_means(self, mu_t, mu_s_n, p_common, kappa1, kappa2, num_sim=None):
+    def forward_from_means(self, mu_t, mu_s_n, kappa1, kappa2, p_common, num_sim=None):
+        """
+        Generate samples from Von Mises distributions and pass them through the forward model.
+
+        Parameters:
+        mu_t (ndarray|int|float): Mean directions for the distributions of regressor t.
+        mu_s_n (ndarray|int|float): Mean directions for the distributions of s_n.
+        kappa1 (ndarray|int|float): Concentration parameters for the distributions of regressor t.
+        kappa2 (ndarray|int|float): Concentration parameters for the distributions of s_n.
+        p_common (float): Prior probability of a common cause.
+        num_sim (int, optional): Number of simulations to run. If None, use self.num_sim.
+
+        Returns:
+        tuple: Results from the forward model, including responses, posterior probability, 
+                and circular mean estimates for t and s_n.
+        """
         if num_sim is None:
             num_sim = self.num_sim
         t_samples, s_n_samples = self.get_vm_samples(num_sim=num_sim, mu_t=mu_t, mu_s_n=mu_s_n,
@@ -51,7 +83,24 @@ class CausalEstimator:
                             kappa2=kappa2, p_common=p_common)
 
     def forward(self, t_samples, s_n_samples, kappa1, kappa2, p_common):
-        # Find "optimal" estimates for s_n and t for every pair of samples assuming P(C=1)=p_common.
+        """
+        Run the forward model to find optimal estimates and posteriors of the common cause probability.
+
+        Parameters:
+        t_samples (ndarray): Samples from the t distribution, shape (num_sim, N, K).
+        s_n_samples (ndarray): Samples from the s_n distribution, shape (num_sim, N, K).
+        kappa1 (ndarray|int|float): Concentration parameters for the distributions of regressor t.
+        kappa2 (ndarray|int|float): Concentration parameters for the distributions of s_n.
+        p_common (float): Prior probability of a common cause.
+
+        Returns:
+        tuple: 
+            - responses: Tuple containing optimal estimates for t and s_n.
+            - posterior_p_common (ndarray): Posterior probabilities of a common cause, shape (num_sim, N, K).
+            - mean_t_est (ndarray): Circular mean estimate for t, shape (N, K).
+            - mean_sn_est (ndarray): Circular mean estimate for s_n, shape (N, K).
+        """
+
         responses = (self.model.bayesian_causal_inference(x_v=t_samples, 
                                                         x_a=s_n_samples, 
                                                         sigma_v=kappa1, 
