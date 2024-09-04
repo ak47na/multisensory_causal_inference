@@ -13,7 +13,7 @@ class TestCausalInference(unittest.TestCase):
         x_a = np.array([1.5, -0.5]).reshape((2, 1))
         kappa1 = forward_models_causal_inference.reshape_kappa_for_causal_inference(np.array([1.5, 2.0, 3.0]), num_mus=2)
         kappa2 = forward_models_causal_inference.reshape_kappa_for_causal_inference(np.array([1.5, 2.3, .5]), num_mus=2)
-        # Compute the fusion estimate for all 4 [(x_v, kappa1); (x_a, kappa2)] pairs
+        # Compute the fusion estimate for all 6 [(x_v, kappa1); (x_a, kappa2)] pairs
         mu_c, kappa_c = von_mises_causal_inference.get_cue_combined_mean_params(mu1=x_v, mu2=x_a, kappa1=kappa1, 
                                                         kappa2=kappa2)
         for i in range(mu_c.shape[0]):

@@ -48,7 +48,7 @@ class TestCustomCausalInference(unittest.TestCase):
         mu_p = None
         sigma_p = None
 
-        # Compute the fusion estimate for all [(x_v, kappa1); (x_a, kappa2)] pairs
+        # Compute the fusion estimate for all 6 [(x_v, kappa1); (x_a, kappa2)] pairs
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_v, mu2=x_a, kappa1=kappa1, 
                                                      kappa2=kappa2)
     
