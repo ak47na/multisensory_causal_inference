@@ -11,10 +11,10 @@ def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
     Determine the mean parameters of the product densities of two von Mises distributions.
 
     Parameters:
-    mu1 (float|np.ndarray): Mean direction of the first von Mises distribution.
-    kappa1 (float|np.ndarray): Concentration parameter of the first von Mises distribution.
-    mu2 (float|np.ndarray): Mean direction of the second von Mises distribution.
-    kappa2 (float|np.ndarray): Concentration parameter of the second von Mises distribution.
+    mu1 (float|ndarray): Mean direction of the first von Mises distribution.
+    kappa1 (float|int|ndarray): Concentration parameter of the first von Mises distribution.
+    mu2 (float|ndarray): Mean direction of the second von Mises distribution.
+    kappa2 (float|int|ndarray): Concentration parameter of the second von Mises distribution.
 
     Returns:
     tuple: Combined mean direction and concentration parameter.
@@ -66,15 +66,15 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         The prior is currently assumed uniform and its parameters are not used.
 
         Parameters:
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        sigma_a (float): Auditory sensory noise (concentration).
-        sigma_v (float): Visual sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Fusion estimate.
+        (float|ndarray): Fusion estimate.
         """
         assert (simulate == False)
         if (mu_p is not None) or (sigma_p is not None):
@@ -100,13 +100,13 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         For uniform p(s), because the Von Mises is symmetric, the MAP is x.
 
         Parameters:
-        x (float or np.ndarray): Sensory input (e.g., observed rate).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
-        sigma (float): Sensory noise (concentration).
+        x (float|ndarray): Sensory input (e.g., observed rate).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
+        sigma (float|int|ndarray): Sensory noise (concentration).
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Segregation estimate matching the type of x.
+        (float|ndarray): Segregation estimate matching the type of x.
         """
         assert utils.mu_kappa_shape_match(x, sigma), f'Mean shape {x.shape}, and concentration shape {sigma.shape} do not match'
         if (mu_p is not None) or (sigma_p is not None):
@@ -121,15 +121,15 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         The prior is currently assumed uniform and its parameters are not used.
 
         Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Likelihood of the common cause hypothesis.
+        (float|ndarray): Likelihood of the common cause hypothesis.
         """
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
@@ -150,15 +150,15 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         The prior is currently assumed uniform and its parameters are not used.
 
         Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Likelihood of the common cause hypothesis.
+        (float|ndarray): Likelihood of the common cause hypothesis.
         """
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
@@ -185,15 +185,15 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         The function uses numeric integration.
 
         Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Likelihood of the separate causes hypothesis.
+        (float|ndarray): Likelihood of the separate causes hypothesis.
         """
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
@@ -215,15 +215,15 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Currently, only uniform priors are supported, hence p(x_v, x_a|C=2) = \frac{1}{2\pi}^2
 
         Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
 
         Returns:
-        (float or np.ndarray): Likelihood of the separate causes hypothesis.
+        (float|ndarray): Likelihood of the separate causes hypothesis.
         """
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
@@ -243,16 +243,16 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Here P(C=1) = p_common = pi_c.
 
         Parameters:
-        x_v (float or np.ndarray): Visual sensory input (observed rate).
-        x_a (float or np.ndarray): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
-        mu_p (float or np.ndarray): Prior mean of the stimulus rate.
+        x_v (float|ndarray): Visual sensory input (observed rate).
+        x_a (float|ndarray): Auditory sensory input (observed rate).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
+        mu_p (float|ndarray): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
-        pi_c (float or np.ndarray): Prior probability of the common cause hypothesis.
+        pi_c (float|ndarray): Prior probability of the common cause hypothesis.
 
         Returns:
-        float or np.ndarray: Posterior probability of the common cause hypothesis.
+        float|ndarray: Posterior probability of the common cause hypothesis.
         """
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
@@ -268,8 +268,8 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         Parameters:
         x_v (float): Visual sensory input (observed rate).
         x_a (float): Auditory sensory input (observed rate).
-        sigma_v (float): Visual sensory noise (concentration).
-        sigma_a (float): Auditory sensory noise (concentration).
+        sigma_v (float|int|ndarray): Visual sensory noise (concentration).
+        sigma_a (float|int|ndarray): Auditory sensory noise (concentration).
         mu_p (float): Prior mean of the stimulus rate.
         sigma_p (float): Prior noise of the stimulus rate.
         pi_c (float): Prior probability of the common cause hypothesis.
