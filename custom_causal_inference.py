@@ -17,6 +17,8 @@ class CustomCausalInference(VonMisesCausalInference):
         The posterior p(s|x_v, x_a) \propto p(x_v, x_a|s)p(s) = p(x_a|s)p(x_v|s)p(s) with p(s) as the
         prior and p(x_a|s), p(x_v|s) as the likelihoods.
         The prior is currently assumed uniform and its parameters are not used.
+        The decision_rule (mean or mode) is applied after converting back to angle
+        space on U^{-1}(p(s|x_v, x_a)).
 
         Parameters:
         x_a (float or np.ndarray): Auditory sensory input (observed rate).
@@ -55,7 +57,7 @@ class CustomCausalInference(VonMisesCausalInference):
         Compute the MAP* estimate in the segregation case (independent sensory processing).
         The posterior p(s|x) \propto p(x|s)p(s), with p(s) as the prior and p(x|s) as the likelihood.
         For uniform p(s), the decision_rule (mean or mode) is applied after converting back to angle
-        space on U^{-1}(p(x|s)).
+        space on U^{-1}(p(s|x)).
 
         Parameters:
         x (float or np.ndarray): Sensory input (e.g., observed rate).
