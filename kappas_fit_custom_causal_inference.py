@@ -12,15 +12,19 @@ import matplotlib.pyplot as plt
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
 
-def process_mean_pair(args):
-    mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, angle_gam_data_path, unif_fn_data_path = args
-
-    mu1 = ut[mean_indices]
-    mu2 = us_n[mean_indices]
+def init_worker(angle_gam_data_path, unif_fn_data_path):
+    global causal_inference_estimator
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path)
+    np.random.seed(os.getpid())
+
+def process_mean_pair(args):
+    mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common = args
+
+    mu1 = ut[mean_indices]
+    mu2 = us_n[mean_indices]
     print("ID of process running : {}".format(os.getpid()), 'mean shapes', mu1.shape, mu2.shape)
 
     # import pdb; pdb.set_trace()
@@ -34,7 +38,6 @@ def process_mean_pair(args):
                                                                                                 p_common=p_common,
                                                                                                 kappa1=kappa1_flat,
                                                                                                 kappa2=kappa2_flat)
-    del causal_inference_estimator
     del t_samples, s_n_samples
     errors = compute_error(mean_sn_est, data_slice)
     assert mean_sn_est.ndim == 2
@@ -56,9 +59,10 @@ def find_optimal_kappas(grid_dim):
     
     for i, data_slice in enumerate(r_n):
         for p_common in p_commons:
-            tasks.append((np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, angle_gam_data_path, unif_fn_data_path))
-
-    with mp.Pool(processes=mp.cpu_count()) as pool:
+            tasks.append((np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common))
+    
+    initargs = (angle_gam_data_path, unif_fn_data_path)
+    with mp.Pool(processes=mp.cpu_count(), initializer=init_worker, initargs=initargs) as pool:
         results = pool.map(process_mean_pair, tasks)
 
     optimal_kappa_pairs = {}
