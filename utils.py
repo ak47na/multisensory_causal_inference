@@ -3,6 +3,15 @@ import matplotlib.pyplot as plt
 from typing import Tuple
 from scipy.stats import mode
 
+def get_cc_high_error_pairs(grid, gam_data, max_samples=400, t_index=2):
+    sol_mat = np.load('./learned_data/cue_comb_sol_for_grid.npy')
+    t_indices, s_n_indices = np.where(sol_mat == 0)
+    t, s_n = grid[t_indices], grid[s_n_indices]
+    r_n = gam_data['full_pdf_mat'][t_indices, s_n_indices, t_index]
+    max_samples = min(max_samples, len(t))
+    indices = np.random.choice(a=len(t), size=max_samples, replace=False)
+    return s_n[indices], t[indices], r_n[indices]
+
 def mu_kappa_shape_match(mu, kappa):
     if isinstance(mu, (int, float)) or isinstance(kappa, (int, float)):
         return True
