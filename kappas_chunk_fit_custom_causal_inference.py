@@ -137,7 +137,7 @@ def find_optimal_kappas():
         key = (idx, p_common)
         if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx_pc[key]):
             optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-            min_error_for_idx_pc[idx] = min_error
+            min_error_for_idx_pc[key] = min_error
 
     return optimal_kappa_pairs, min_error_for_idx_pc
 
@@ -164,7 +164,6 @@ if __name__ == '__main__':
                                         causal_inference_estimator.gam_data,
                                         max_samples=2)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
-        import pdb; pdb.set_trace()
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data)
@@ -207,7 +206,6 @@ if __name__ == '__main__':
     plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
     plt.show()
 
-    import pdb; pdb.set_trace()
     # Save optimal paramters
     with open('./learned_data/optimal_kappa_pairs.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
