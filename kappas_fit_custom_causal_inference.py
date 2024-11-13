@@ -9,6 +9,9 @@ import plots
 import forward_models_causal_inference
 import matplotlib.pyplot as plt
 import argparse
+import pickle
+from tqdm import tqdm
+
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -26,7 +29,6 @@ def process_mean_pair(args):
 
     mu1 = ut[mean_indices]
     mu2 = us_n[mean_indices]
-    print("Process ID: {}, mean shapes: {}, {}".format(os.getpid(), mu1.shape, mu2.shape))
 
     # Select the chunk of kappa combinations
     kappa1_chunk = kappa1_flat[kappa_indices]
@@ -59,6 +61,7 @@ def process_mean_pair(args):
     optimal_kappa1 = kappa1_chunk[idx_min]
     optimal_kappa2 = kappa2_chunk[idx_min]
     min_error = np.min(errors, axis=1)
+    print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
 
@@ -84,7 +87,11 @@ def find_optimal_kappas():
 
     initargs = (angle_gam_data_path, unif_fn_data_path)
     with mp.Pool(processes=mp.cpu_count(), initializer=init_worker, initargs=initargs) as pool:
-        results = pool.map(process_mean_pair, tasks)
+        results = []
+        # Use tqdm to add a progress bar
+        for result in tqdm(pool.imap_unordered(process_mean_pair, tasks), total=len(tasks)):
+            results.append(result)
+
 
     # Collect and combine results
     optimal_kappa_pairs = {}
@@ -108,7 +115,7 @@ if __name__ == '__main__':
     D = 250  # grid dimension
     angle_gam_data_path = 'D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
     unif_fn_data_path = 'D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl'
-    p_commons = [0, .2, .5, .7, 1]
+    p_commons = np.linspace(start=0, stop=1, num=10)
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
 
@@ -120,7 +127,8 @@ if __name__ == '__main__':
 
     if use_high_cc_error_pairs:
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
-                                        causal_inference_estimator.gam_data)
+                                        causal_inference_estimator.gam_data,
+                                        max_samples=50)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
@@ -137,8 +145,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 50
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 50
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
@@ -154,6 +162,13 @@ if __name__ == '__main__':
 
     optimal_kappa_pairs, min_error_for_idx = find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
+    with open('./learned_data/optimal_kappa_pairs.pkl', 'wb') as f:
+        pickle.dump(optimal_kappa_pairs, f)
+    with open('./learned_data/min_error_for_idx.pkl', 'wb') as f:
+        pickle.dump(min_error_for_idx, f)
+    np.save('./learned_data/selected_s_n.npy', arr=s_n)
+    np.save('./learned_data/selected_t.npy', arr=t)
+    np.save('./learned_data/selected_r_n.npy', arr=r_n)
     plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
     plt.show()
     print(f'Max error = {max(min_error_for_idx.values())}, avg error: {np.mean(np.array(list(min_error_for_idx.values())))}')

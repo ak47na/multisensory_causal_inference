@@ -9,7 +9,7 @@ def get_cc_high_error_pairs(grid, gam_data, max_samples=400, t_index=2):
     t, s_n = grid[t_indices], grid[s_n_indices]
     r_n = gam_data['full_pdf_mat'][t_indices, s_n_indices, t_index]
     max_samples = min(max_samples, len(t))
-    indices = np.random.choice(a=len(t), size=max_samples, replace=False)
+    indices = np.sort(np.random.choice(a=len(t), size=max_samples, replace=False))
     return s_n[indices], t[indices], r_n[indices]
 
 def mu_kappa_shape_match(mu, kappa):
