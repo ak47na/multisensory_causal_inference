@@ -25,6 +25,29 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
     np.random.seed(os.getpid())
 
 def process_mean_pair(args):
+    """
+    Processes pairs of means and finds the optimal kappa values that minimize the error
+    between model predictions and GAM data for a chunk of kappa combinations.
+
+    Parameters:
+        args (tuple): A tuple containing the following elements:
+            - mean_indices (array-like): Indices of mean values to process.
+            - ut (array-like): Array of transformed target means (ut).
+            - us_n (array-like): Array of transformed sensory means (us_n).
+            - kappa1_flat (array-like): Flattened array of kappa1 values.
+            - kappa2_flat (array-like): Flattened array of kappa2 values.
+            - num_sim (int): Number of simulations to run.
+            - data_slice (array-like): GAM predicted response corresponding to the mean indices.
+            - p_common (float): Probability of a common cause.
+            - kappa_indices (array-like): Indices to select a chunk of kappa combinations.
+
+    Returns:
+        tuple: A tuple containing:
+            - mean_indices (array-like): Indices of the processed mean values.
+            - p_common (float): Probability of a common cause used.
+            - optimal_kappas (tuple): A tuple of optimal kappa1 and kappa2 values minimizing the error.
+            - min_error (array-like): Minimum error achieved with the optimal kappa values.
+    """
     mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
 
     mu1 = ut[mean_indices]
@@ -64,6 +87,20 @@ def process_mean_pair(args):
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
 
 def find_optimal_kappas():
+    """
+    Finds the optimal kappa values that minimize the error between model predictions and GAM data
+    by processing chunks of kappa combinations in parallel using multiprocessing.
+
+    This function prepares tasks for different combinations of mean indices, probabilities of a common cause (p_common),
+    and chunks of kappa values. It then uses a multiprocessing pool to process these tasks concurrently.
+    After processing, it collects and combines the results to find the kappa pairs that achieve the minimum error
+    for each mean index and p_common value.
+
+    Returns:
+        tuple: A tuple containing:
+            - optimal_kappa_pairs (dict): A dictionary mapping (mean index, p_common) tuples to optimal kappa pairs (kappa1, kappa2).
+            - min_error_for_idx_pc (dict): A dictionary mapping (mean index, p_common) tuples to the minimum error achieved.
+    """
     tasks = []
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
 
@@ -92,17 +129,17 @@ def find_optimal_kappas():
 
     # Collect and combine results across chunks of concentrations 
     optimal_kappa_pairs = {}
-    min_error_for_idx = {idx: np.pi for idx in range(r_n.shape[0])}
+    min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(r_n.shape[0]) for pc in p_commons}
 
     # Find the minimum error across kappa chunks
     for mean_indices, p_common, optimal_kappa_pair, min_error in results:
         idx = mean_indices[0]  # mean_indices is an array of one element *for now*
         key = (idx, p_common)
-        if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx[idx]):
+        if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx_pc[key]):
             optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-            min_error_for_idx[idx] = min_error
+            min_error_for_idx_pc[idx] = min_error
 
-    return optimal_kappa_pairs, min_error_for_idx
+    return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
@@ -125,8 +162,9 @@ if __name__ == '__main__':
     if use_high_cc_error_pairs:
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data,
-                                        max_samples=50)
+                                        max_samples=2)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+        import pdb; pdb.set_trace()
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data)
@@ -157,15 +195,27 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    optimal_kappa_pairs, min_error_for_idx = find_optimal_kappas()
+    optimal_kappa_pairs, min_error_for_idx_pc = find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
+    min_error_for_idx = {}
+    for key in min_error_for_idx_pc:
+        if key[0] in min_error_for_idx:
+            min_error_for_idx[key[0]] = min(min_error_for_idx[key[0]], min_error_for_idx_pc[key])
+        else:
+            min_error_for_idx[key[0]] = min_error_for_idx_pc[key]
+
+    plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
+    plt.show()
+
+    import pdb; pdb.set_trace()
+    # Save optimal paramters
     with open('./learned_data/optimal_kappa_pairs.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
+    with open('./learned_data/min_error_for_idx_pc.pkl', 'wb') as f:
+        pickle.dump(min_error_for_idx_pc, f)
     with open('./learned_data/min_error_for_idx.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
     np.save('./learned_data/selected_s_n.npy', arr=s_n)
     np.save('./learned_data/selected_t.npy', arr=t)
     np.save('./learned_data/selected_r_n.npy', arr=r_n)
-    plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
-    plt.show()
     print(f'Max error = {max(min_error_for_idx.values())}, avg error: {np.mean(np.array(list(min_error_for_idx.values())))}')
