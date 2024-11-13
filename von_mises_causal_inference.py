@@ -4,7 +4,6 @@ import utils
 from scipy.stats import vonmises
 from scipy.special import i0
 import matplotlib.pyplot as plt
-from warnings import catch_warnings, warn
 
 
 def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
@@ -260,15 +259,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         assert utils.mu_kappa_shape_match(x_a, sigma_a), f'Mean shape {x_a.shape}, and concentration shape {sigma_a.shape} do not match'
         posterior_p_common = self.likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * pi_c
         posterior_p_separate = self.likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p) * (1 - pi_c)
-        
-        with catch_warnings(record=True) as w:
-            ret = posterior_p_common / (posterior_p_common + posterior_p_separate)
-            if w:
-                print('WWWW', sigma_a, sigma_v)
-                print('XXXXXXXXX', posterior_p_common, posterior_p_separate)
-                print('===================')
-            return ret
-        #return posterior_p_common / (posterior_p_common + posterior_p_separate)
+        return posterior_p_common / (posterior_p_common + posterior_p_separate)
 
     def bayesian_causal_inference(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         """

@@ -4,7 +4,12 @@ from typing import Tuple
 from scipy.stats import mode
 
 def get_cc_high_error_pairs(grid, gam_data, max_samples=400, t_index=2):
+    '''
+    Returns at most max_samples random tuples of (s_n, t, r_n) from the grid pairs where no optimal
+    solution could be found with cue combination.
+    '''
     sol_mat = np.load('./learned_data/cue_comb_sol_for_grid.npy')
+    assert sol_mat.shape[0] == grid.shape[0]
     t_indices, s_n_indices = np.where(sol_mat == 0)
     t, s_n = grid[t_indices], grid[s_n_indices]
     r_n = gam_data['full_pdf_mat'][t_indices, s_n_indices, t_index]
