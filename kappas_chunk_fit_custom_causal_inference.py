@@ -2,26 +2,28 @@ import multiprocessing as mp
 import os
 import numpy as np
 from scipy.stats import vonmises, circmean
-from custom_causal_inference import CustomCausalInference
-from repulsion_hypothesis import repulsion_value
 import utils
 import plots
-import forward_models_causal_inference
 import matplotlib.pyplot as plt
 import argparse
 import pickle
 from tqdm import tqdm
-
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
 
 def init_worker(angle_gam_data_path, unif_fn_data_path):
     global causal_inference_estimator
+    global unif_map
+    # Import JAX-related modules inside the worker initializer
+    from custom_causal_inference import CustomCausalInference
+    import forward_models_causal_inference
+
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path)
+    unif_map = causal_inference_estimator.unif_map
     np.random.seed(os.getpid())
 
 def process_mean_pair(args):
@@ -127,7 +129,7 @@ def find_optimal_kappas():
             results.append(result)
 
 
-    # Collect and combine results across chunks of concentrations 
+    # Collect and combine results across chunks of concentrations
     optimal_kappa_pairs = {}
     min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(r_n.shape[0]) for pc in p_commons}
 
@@ -142,6 +144,9 @@ def find_optimal_kappas():
     return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
+    # Set the multiprocessing start method to 'spawn'
+    mp.set_start_method('spawn', force=True)
+
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
 
@@ -153,6 +158,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
 
+    # Import JAX-related modules inside the main block
+    from custom_causal_inference import CustomCausalInference
+    from repulsion_hypothesis import repulsion_value
+    import forward_models_causal_inference
+
+    # Initialize the estimator inside the main block
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
@@ -162,7 +173,7 @@ if __name__ == '__main__':
     if use_high_cc_error_pairs:
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data,
-                                        max_samples=2)
+                                        max_samples=1)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
@@ -206,7 +217,7 @@ if __name__ == '__main__':
     plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
     plt.show()
 
-    # Save optimal paramters
+    # Save optimal parameters
     with open('./learned_data/optimal_kappa_pairs.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
     with open('./learned_data/min_error_for_idx_pc.pkl', 'wb') as f:
