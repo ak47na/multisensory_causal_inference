@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 from tqdm import tqdm
+from custom_causal_inference import CustomCausalInference
+import forward_models_causal_inference
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -15,9 +17,6 @@ def compute_error(computed_values, data_slice):
 def init_worker(angle_gam_data_path, unif_fn_data_path):
     global causal_inference_estimator
     global unif_map
-    # Import JAX-related modules inside the worker initializer
-    from custom_causal_inference import CustomCausalInference
-    import forward_models_causal_inference
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
@@ -157,11 +156,6 @@ if __name__ == '__main__':
     p_commons = [0, .2, .5, .7, 1]
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
-
-    # Import JAX-related modules inside the main block
-    from custom_causal_inference import CustomCausalInference
-    from repulsion_hypothesis import repulsion_value
-    import forward_models_causal_inference
 
     # Initialize the estimator inside the main block
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
