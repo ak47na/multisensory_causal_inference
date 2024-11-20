@@ -145,15 +145,15 @@ def find_optimal_kappas():
 
 if __name__ == '__main__':
     # Set the multiprocessing start method to 'spawn'
-    mp.set_start_method('spawn', force=True)
+    #mp.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
 
     num_sim = 1000
     D = 250  # grid dimension
-    angle_gam_data_path = 'D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
-    unif_fn_data_path = 'D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl'
+    angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
+    unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl'
     p_commons = [0, .2, .5, .7, 1]
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
