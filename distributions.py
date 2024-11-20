@@ -35,7 +35,7 @@ def get_interp(mean_file_path='./learned_data/R_mean_250_250.npy',
 
 class UVM(Distribution):
     def __init__(self, loc, scale, kappa, interp=None, num_sim=1000, 
-                 unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl') -> None:
+                 unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl') -> None:
         super().__init__(loc, scale, kappa, interp)
         #assert (np.asarray(loc).shape == np.asarray(kappa).shape)
         self.num_sim = num_sim
