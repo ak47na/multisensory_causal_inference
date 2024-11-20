@@ -121,7 +121,7 @@ if __name__ == "__main__":
     interp = {'mus': mus, 'kappas': kappas}
     num_sim = 1000
     uvm = UVM(loc=mus_matrix, scale=None, kappa=kappas_matrix, interp=interp, num_sim=num_sim, 
-              unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl')
+              unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl')
     uvm.learn_mean_and_mode(mean_file_path=f'./learned_data/R_mean_{len(mus)}_{len(kappas)}.npy',
                             mode_file_path=f'./learned_data/R_mode_{len(mus)}_{len(kappas)}.npy')
     uvm.plot_decision_rules(decision_rules=['mean', 'mode'])
