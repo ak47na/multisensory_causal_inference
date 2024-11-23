@@ -165,3 +165,52 @@ def modes(data: np.ndarray, num_bins: int) -> np.ndarray:
     bin_centers = 0.5 * (bins[:-1] + bins[1:])
     # Convert mode bin indices back to bin centers
     return bin_centers[modes_indices]
+
+
+def select_evenly_spaced_integers(num, start=0, end=249):
+    """
+    Selects num as evenly spaced as possible integers in the range from start to end inclusive.
+
+    Parameters:
+    - num (int): Number of integers to select.
+    - start (int): Start of the range (inclusive).
+    - end (int): End of the range (inclusive).
+
+    Returns:
+    - indices (np.ndarray): Array of selected integers.
+    """
+    # Total number of available integers in the range
+    total_integers = end - start + 1
+    # Adjust num if it exceeds the total number of available integers
+    num = min(num, total_integers)
+    # Generate x evenly spaced values in the range
+    indices = np.linspace(start, end, num)
+    # Round to the nearest integer
+    indices = np.round(indices).astype(int)
+    # Ensure indices are within the bounds
+    indices = np.clip(indices, start, end)
+    # Remove duplicates (if any)
+    indices = np.unique(indices)
+    return indices
+
+
+def select_closest_values(array, selected_values, distance_function):
+    """
+    Selects num_to_select elements from 'array' that are closest to any value in 'selected_values'.
+
+    Parameters:
+    - array (np.ndarray): 1D array from which to select values.
+    - selected_values (np.ndarray): 1D array of values to compare against.
+    - num_to_select (int): Number of closest values to select from 'array'.
+    - distance_function (callable): Function to compute distance between elements.
+
+    Returns:
+    - selected_indices (np.ndarray): Indices of the selected values in 'array'.
+    """
+    # Compute the distance matrix between 'array' and 'selected_values'
+    distances = distance_function(selected_values[:, np.newaxis], array[np.newaxis, :])
+    # distances[i, j] = distance_function(selected_values[i], array[j])
+    # Get the indices of the elements in array closest to elements in selected_values
+    selected_indices = np.argmin(distances, axis=1)
+    assert selected_indices.shape == selected_values.shape
+    return selected_indices

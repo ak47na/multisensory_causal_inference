@@ -148,7 +148,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
-
+    parser.add_argument('--use_unif_internal_space', type=int, default=0, help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     num_sim = 1000
     D = 250  # grid dimension
     angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
@@ -156,6 +156,7 @@ if __name__ == '__main__':
     p_commons = [0, .2, .5, .7, 1]
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
+    use_unif_internal_space = args.use_unif_internal_space
 
     # Initialize the estimator inside the main block
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
@@ -165,10 +166,32 @@ if __name__ == '__main__':
     unif_map = causal_inference_estimator.unif_map
 
     if use_high_cc_error_pairs:
+        assert (use_unif_internal_space ==0)
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data,
                                         max_samples=1)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+    elif use_unif_internal_space != 0:
+        assert (use_unif_internal_space > 0)
+        indices = utils.select_evenly_spaced_integers(num=use_unif_internal_space)
+        stimuli = np.linspace(-np.pi, np.pi, D)
+        selected_internal_stimuli = stimuli[indices] # Uniform in internal space
+        selected_stimuli = unif_map.unif_space_to_angle_space(selected_internal_stimuli)
+        grid_indices_selected_stimuli = utils.select_closest_values(array=stimuli, 
+                                                                    selected_values=selected_stimuli, 
+                                                                    distance_function=utils.circular_dist) 
+        plt.scatter(selected_internal_stimuli, stimuli[grid_indices_selected_stimuli], label='selected s_n')
+        plt.scatter(selected_internal_stimuli, selected_stimuli, label='s_n uniform in internal space')
+        plt.scatter(selected_internal_stimuli, selected_internal_stimuli, alpha=.7, c='k', label='s_n uniform in angle space')
+        plt.legend()
+        plt.show()
+        
+        r_n = causal_inference_estimator.gam_data['full_pdf_mat'][grid_indices_selected_stimuli, :, 2]
+        r_n = r_n[:, grid_indices_selected_stimuli]
+        t, s_n = np.meshgrid(np.sort(stimuli[grid_indices_selected_stimuli]), 
+                             np.sort(stimuli[grid_indices_selected_stimuli]), indexing='ij')
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+        plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data)
