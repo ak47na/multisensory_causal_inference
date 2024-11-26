@@ -179,17 +179,31 @@ if __name__ == '__main__':
         selected_stimuli = unif_map.unif_space_to_angle_space(selected_internal_stimuli)
         grid_indices_selected_stimuli = utils.select_closest_values(array=stimuli, 
                                                                     selected_values=selected_stimuli, 
-                                                                    distance_function=utils.circular_dist) 
-        plt.scatter(selected_internal_stimuli, stimuli[grid_indices_selected_stimuli], label='selected s_n')
-        plt.scatter(selected_internal_stimuli, selected_stimuli, label='s_n uniform in internal space')
-        plt.scatter(selected_internal_stimuli, selected_internal_stimuli, alpha=.7, c='k', label='s_n uniform in angle space')
+                                                                    distance_function=utils.circular_dist)
+        print(f'Indices in grid of selected stimuli: {grid_indices_selected_stimuli}')
+        if (grid_indices_selected_stimuli[0] == 0) and (grid_indices_selected_stimuli[-1] == 0):
+            grid_indices_selected_stimuli[-1] = D-1
+        grid_indices_selected_stimuli = np.sort(grid_indices_selected_stimuli)
+        print(f'Indices in grid of selected stimuli after wrap test: {grid_indices_selected_stimuli}')
+        plt.scatter(selected_internal_stimuli, stimuli[grid_indices_selected_stimuli], label='selected s_n', alpha=.5, c='b')
+        plt.scatter(selected_internal_stimuli, selected_stimuli, label='s_n uniform in internal space', alpha=.5, c='r')
+        plt.scatter(selected_internal_stimuli, selected_internal_stimuli, alpha=.7, c='k', marker='x', label='s_n uniform in angle space')
         plt.legend()
         plt.show()
-        
+        grid_indices_selected_stimuli = np.unique(grid_indices_selected_stimuli)
         r_n = causal_inference_estimator.gam_data['full_pdf_mat'][grid_indices_selected_stimuli, :, 2]
         r_n = r_n[:, grid_indices_selected_stimuli]
-        t, s_n = np.meshgrid(np.sort(stimuli[grid_indices_selected_stimuli]), 
-                             np.sort(stimuli[grid_indices_selected_stimuli]), indexing='ij')
+        t, s_n = np.meshgrid(stimuli[grid_indices_selected_stimuli], 
+                             stimuli[grid_indices_selected_stimuli], indexing='ij')
+        plt.scatter(s_n, r_n, label='r_n as fn of s_n')
+        plt.legend()
+        plt.show()
+        plt.scatter(np.arange(len(grid_indices_selected_stimuli)), grid_indices_selected_stimuli)
+        plt.title('Indices of selected stimuli')
+        plt.show()
+        plt.scatter(grid_indices_selected_stimuli, grid_indices_selected_stimuli)
+        plt.title('Indices of selected stimuli')
+        plt.show()
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
     else:
