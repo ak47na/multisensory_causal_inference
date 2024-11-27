@@ -134,8 +134,8 @@ def get_s_n_and_t(grid, gam_data):
 if __name__ == "__main__":
     num_sim = 10000
     D = 250  # grid dimension 
-    angle_gam_data_path = 'D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
-    unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl'
+    angle_gam_data_path = '/nfs/data/kdusterwald/causal_inf/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
+    unif_fn_data_path='/nfs/data/kdusterwald/causal_inf/uniform_model_base_inv_kappa_free.pkl'
     # Load the GAM.
     with open(angle_gam_data_path, 'rb') as file:
         gam_data = pickle.load(file)

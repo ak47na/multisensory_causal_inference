@@ -1,6 +1,7 @@
 # TODO(ak47na): if needed, refactor into an Interpolation interface and subclasses for different
 # interpolation methods
 import numpy as np
+import jax.numpy as jnp
 from utils import circular_dist, abs_dist, wrap
 from bisect import bisect_left
 
@@ -8,21 +9,23 @@ def bs_vectorized(x, xs, distance_fn=abs_dist):
     if isinstance(x, float) or isinstance(x, int):
         return bs(x, xs)
     # Convert xs to a NumPy array for efficient processing
-    xs = np.asarray(xs)
+    xs = jnp.asarray(xs)
 
     # Use searchsorted to find the insertion points for all x values
-    idx = np.searchsorted(xs, x, side='left')
+    idx = jnp.searchsorted(xs, x, side='left')
 
     # Handle edge cases
-    idx[idx == 0] = 1  # If x is beyond the left end, set idx to 1
-    idx[idx == len(xs)] = len(xs) - 1  # If x is beyond the right end, set idx to len(xs)-1
+    # idx[idx == 0] = 1  # If x is beyond the left end, set idx to 1
+    idx = jnp.where(idx == 0, 1, idx)
+    idx = jnp.where(idx == len(xs), len(xs) - 1, idx)
+    # idx[idx == len(xs)] = len(xs) - 1  # If x is beyond the right end, set idx to len(xs)-1
 
     # Compute distances to the left and right neighbors
     left_dist = distance_fn(x, xs[idx - 1])
     right_dist = distance_fn(x, xs[idx])
 
     # Determine whether the left or right neighbor is closer
-    closest_idx = np.where(left_dist <= right_dist, idx - 1, idx)
+    closest_idx = jnp.where(left_dist <= right_dist, idx - 1, idx)
 
     return closest_idx
 
@@ -55,15 +58,15 @@ def find_closest_mu(mu, mus):
     """
     mu_len = 1
     mu = wrap(mu)
-    if isinstance(mu, np.ndarray):
+    if isinstance(mu, jnp.ndarray):
         mu_len = mu.shape
     else:
         assert (isinstance(mu, float)), f'Mu has type {type(mu)}, but only float and np.ndarray are supported'
-    circular_distances = np.array([circular_dist(m, mu) for m in mus]).reshape(-1, *mu_len)
+    circular_distances = jnp.array([circular_dist(m, mu) for m in mus]).reshape(-1, *mu_len)
     #print(f'dist_shape={circular_distances.shape}')
     if isinstance(mu, float):
-        return np.argmin(circular_dist, axis=0)[0]
-    return np.argmin(circular_distances, axis=0)
+        return jnp.argmin(circular_dist, axis=0)[0]
+    return jnp.argmin(circular_distances, axis=0)
 
 def find_closest_mu_bs(mu, mus):
     """
@@ -71,11 +74,11 @@ def find_closest_mu_bs(mu, mus):
     mus is assumed to be sorted.
     """
     idx_1 = bs_vectorized(mu, mus, distance_fn=circular_dist)
-    idx_2 = np.where(mu < 0, bs_vectorized(2*np.pi+mu, mus, distance_fn=circular_dist),
+    idx_2 = jnp.where(mu < 0, bs_vectorized(2*np.pi+mu, mus, distance_fn=circular_dist),
                      bs_vectorized(mu-2*np.pi, mus, distance_fn=circular_dist))
     circ_dist_to_idx1 = circular_dist(mu, mus[idx_1])
     circ_dist_to_idx2 = circular_dist(mu, mus[idx_2])
-    return np.where(circ_dist_to_idx1 <= circ_dist_to_idx2, idx_1, idx_2)
+    return jnp.where(circ_dist_to_idx1 <= circ_dist_to_idx2, idx_1, idx_2)
 
 def f_mu_kappa_scipy_interp(mu, kappa, interp):
     """
@@ -113,8 +116,8 @@ def f_mu_kappa(mu, kappa, interp, f, interpolation_type='grid'):
         return f_mu_kappa_scipy_interp(mu, kappa, interp)
     
 def add_key_from_file_to_interp(interp, key, value_path):
-    interp[key] =np.load(value_path)
+    interp[key] =jnp.load(value_path)
 
 def save_key_to_file(interp, key, value_path):
-    np.save(interp[key], value_path)
+    jnp.save(interp[key], value_path)
 

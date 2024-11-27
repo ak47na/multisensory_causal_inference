@@ -6,6 +6,7 @@ from scipy.stats import vonmises, circmean
 import matplotlib.pyplot as plt
 import pickle
 import interpolation
+import jax.numpy as jnp
 
 
 class Distribution(ABC):
@@ -25,17 +26,17 @@ class Distribution(ABC):
 
 def get_interp(mean_file_path='./learned_data/R_mean_250_250.npy',
                mode_file_path='./learned_data/R_mode_250_250.npy'):
-    mus = np.linspace(-np.pi, np.pi, 250)
-    kappas = np.linspace(1, 500, 250)
+    mus = jnp.linspace(-jnp.pi, jnp.pi, 250)
+    kappas = jnp.linspace(1, 500, 250)
     interp = {'mus': mus, 'kappas': kappas}
-    interp['R_mean'] = np.load(mean_file_path)
-    interp['R_mode'] = np.load(mode_file_path)
+    interp['R_mean'] = jnp.load(mean_file_path)
+    interp['R_mode'] = jnp.load(mode_file_path)
     assert isinstance(interp, dict)
     return interp
 
 class UVM(Distribution):
     def __init__(self, loc, scale, kappa, interp=None, num_sim=1000, 
-                 unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl') -> None:
+                 unif_fn_data_path='/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free_jax.pkl') -> None:
         super().__init__(loc, scale, kappa, interp)
         #assert (np.asarray(loc).shape == np.asarray(kappa).shape)
         self.num_sim = num_sim
@@ -45,7 +46,8 @@ class UVM(Distribution):
         assert isinstance(self.interp, dict), f'type(interp)={type(interp)}'
         with open(unif_fn_data_path, 'rb') as file:
             unif_fn_data = pickle.load(file)
-        self.unif_map = usu.UnifMap(data=unif_fn_data)
+        jax_friendly_unif_fn_data = usu.initialize_data(unif_fn_data)
+        self.unif_map = usu.UnifMap(data=jax_friendly_unif_fn_data)
         self.unif_map.get_cdf_and_inverse_cdf()
 
     def load_interp(self, mean_file_path='./learned_data/R_mean_250_250.npy',
@@ -69,12 +71,12 @@ class UVM(Distribution):
             sample_size = (self.num_sim, *self.loc.shape)
         samples = self.rvs(size=sample_size)
         assert isinstance(interp, dict)
-        self.interp['R_mean'] = circmean(samples, low=-np.pi, high=np.pi, axis=0)
+        self.interp['R_mean'] = circmean(samples, low=-jnp.pi, high=jnp.pi, axis=0)
         self.interp['R_mode'] = utils.modes(samples, num_bins=250)
         if mean_file_path is not None:
-            np.save(mean_file_path, self.interp['R_mean'])
+            jnp.save(mean_file_path, self.interp['R_mean'])
         if mode_file_path is not None:
-            np.save(mode_file_path, self.interp['R_mode'])
+            jnp.save(mode_file_path, self.interp['R_mode'])
     
     def mode(self):
         return interpolation.f_mu_kappa_grid_interp(mu=self.loc,
@@ -114,14 +116,14 @@ class UVM(Distribution):
 
 
 if __name__ == "__main__":
-    mus = np.linspace(-np.pi, np.pi, 250)
-    kappas = np.linspace(1, 500, 250)
-    mus_matrix = np.tile(mus[:, np.newaxis], (1, len(kappas)))
-    kappas_matrix = np.tile(kappas, (len(mus), 1))
+    mus = jnp.linspace(-jnp.pi, jnp.pi, 250)
+    kappas = jnp.linspace(1, 500, 250)
+    mus_matrix = jnp.tile(mus[:, jnp.newaxis], (1, len(kappas)))
+    kappas_matrix = jnp.tile(kappas, (len(mus), 1))
     interp = {'mus': mus, 'kappas': kappas}
     num_sim = 1000
     uvm = UVM(loc=mus_matrix, scale=None, kappa=kappas_matrix, interp=interp, num_sim=num_sim, 
-              unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl')
+              unif_fn_data_path='/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free_jax.pkl')
     uvm.learn_mean_and_mode(mean_file_path=f'./learned_data/R_mean_{len(mus)}_{len(kappas)}.npy',
                             mode_file_path=f'./learned_data/R_mode_{len(mus)}_{len(kappas)}.npy')
     uvm.plot_decision_rules(decision_rules=['mean', 'mode'])

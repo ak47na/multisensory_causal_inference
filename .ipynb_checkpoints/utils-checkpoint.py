@@ -2,21 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple
 from scipy.stats import mode
-import jax.numpy as jnp
-
-def get_cc_high_error_pairs(grid, gam_data, max_samples=400, t_index=2):
-    '''
-    Returns at most max_samples random tuples of (s_n, t, r_n) from the grid pairs where no optimal
-    solution could be found with cue combination.
-    '''
-    sol_mat = jnp.load('./learned_data/cue_comb_sol_for_grid.npy')
-    assert sol_mat.shape[0] == grid.shape[0]
-    t_indices, s_n_indices = np.where(sol_mat == 0)
-    t, s_n = grid[t_indices], grid[s_n_indices]
-    r_n = gam_data['full_pdf_mat'][t_indices, s_n_indices, t_index]
-    max_samples = min(max_samples, len(t))
-    indices = jnp.sort(jnp.random.choice(a=len(t), size=max_samples, replace=False))
-    return s_n[indices], t[indices], r_n[indices]
 
 def mu_kappa_shape_match(mu, kappa):
     if isinstance(mu, (int, float)) or isinstance(kappa, (int, float)):
@@ -32,8 +17,8 @@ def mus_shape_match(mu1, mu2):
 
 
 def get_s_n_and_t(grid, gam_data, step=1, t_index=2):
-    indices = jnp.arange(len(grid), step=step)
-    t, s_n = jnp.meshgrid(grid[indices], grid[indices], indexing='ij')
+    indices = np.arange(len(grid), step=step)
+    t, s_n = np.meshgrid(grid[indices], grid[indices], indexing='ij')
     r_n = gam_data['full_pdf_mat'][indices, :, t_index]
     r_n = r_n[:, indices]
     return s_n, t, r_n
@@ -55,23 +40,23 @@ def estimate_mu_and_kappa_von_mises(angles, axis=0):
     """
 
     # Compute the cosine and sine of the angles
-    cos_angles = jnp.cos(angles)
-    sin_angles = jnp.sin(angles)
+    cos_angles = np.cos(angles)
+    sin_angles = np.sin(angles)
     # Sum along the axis axis
-    sum_cos = jnp.sum(cos_angles, axis=axis)
-    sum_sin = jnp.sum(sin_angles, axis=axis)
+    sum_cos = np.sum(cos_angles, axis=axis)
+    sum_sin = np.sum(sin_angles, axis=axis)
     # Estimate the mean
-    mu = jnp.arctan2(sum_sin, sum_cos)
+    mu = np.arctan2(sum_sin, sum_cos)
     # Number of samples
     N = angles.shape[0]
     # Compute the resultant vector length R
-    R = jnp.sqrt(sum_cos**2 + sum_sin**2) / N
+    R = np.sqrt(sum_cos**2 + sum_sin**2) / N
     # Estimate kappa using the approximation
     # Handling the small R case separately if needed
     kappa = np.where(
         R < 0.53,
         2 * R + R**3 + (5 * R**5) / 6,
-        jnp.where(
+        np.where(
             R < 0.85,
             -0.4 + 1.39 * R + 0.43 / (1 - R),
             1 / (2 * (1 - R))
@@ -98,18 +83,18 @@ def wrap(x: np.ndarray) -> np.ndarray:
 
         This function is useful for normalizing angles to a consistent range.
     """
-    return jnp.mod(x + 3 * jnp.pi, 2 * jnp.pi) - jnp.pi
+    return np.mod(x + 3 * np.pi, 2 * np.pi) - np.pi
 
 
 def abs_dist(x, y):
-    return jnp.abs(x-y)
+    return np.abs(x-y)
 
 def circular_dist(x, y):
     """
     Calculate the circular distance between two angles x and y.
     Both x and y should be in radians.
     """
-    return jnp.pi - jnp.abs((jnp.mod(jnp.abs(x - y), 2*jnp.pi)) - jnp.pi)
+    return np.pi - np.abs((np.mod(np.abs(x - y), 2*np.pi)) - np.pi)
 
 
 def plot_2d_histogram(x_1s, x_2s, n_bins=50):

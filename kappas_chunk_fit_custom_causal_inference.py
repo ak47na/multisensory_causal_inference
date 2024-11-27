@@ -2,26 +2,29 @@ import multiprocessing as mp
 import os
 import numpy as np
 from scipy.stats import vonmises, circmean
-from custom_causal_inference import CustomCausalInference
-from repulsion_hypothesis import repulsion_value
 import utils
 import plots
-import forward_models_causal_inference
 import matplotlib.pyplot as plt
 import argparse
 import pickle
 from tqdm import tqdm
-
+from custom_causal_inference import CustomCausalInference
+import forward_models_causal_inference
+import jax
+import jax.numpy as jnp
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
 
 def init_worker(angle_gam_data_path, unif_fn_data_path):
     global causal_inference_estimator
+    global unif_map
+
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path)
+    unif_map = causal_inference_estimator.unif_map
     np.random.seed(os.getpid())
 
 def process_mean_pair(args):
@@ -78,7 +81,7 @@ def process_mean_pair(args):
     assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
 
     # Find the pair of kappas with minimum error between r_n(s_n, t) and the mean optimal estimate
-    idx_min = np.argmin(errors, axis=1)
+    idx_min = jnp.argmin(errors, axis=1)
     optimal_kappa1 = kappa1_chunk[idx_min]
     optimal_kappa2 = kappa2_chunk[idx_min]
     min_error = np.min(errors, axis=1)
@@ -105,13 +108,19 @@ def find_optimal_kappas():
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
 
     # Adjust based on memory availability
-    chunk_size = 500
+    chunk_size = 4000
 
     total_kappa_combinations = len(kappa1_flat)
-    kappa_indices = np.arange(total_kappa_combinations)
+    kappa_indices = jnp.arange(total_kappa_combinations)
 
+    num_devices = jax.local_device_count()
     num_chunks = (total_kappa_combinations + chunk_size - 1) // chunk_size
 
+    print(f"Number of available devices: {num_devices}", f"Number of chunks: {num_chunks}", f"Chunk size: {chunk_size}")
+
+    assert num_chunks % num_devices == 0, "Number of chunks must be divisible by the number of devices."
+
+    # prepare tasks
     for i, data_slice in enumerate(r_n):
         for p_common in p_commons:
             for chunk_idx in range(num_chunks):
@@ -120,12 +129,39 @@ def find_optimal_kappas():
                 kappa_indices_chunk = kappa_indices[start_idx:end_idx]
                 tasks.append((np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
 
-    initargs = (angle_gam_data_path, unif_fn_data_path)
-    with mp.Pool(processes=mp.cpu_count(), initializer=init_worker, initargs=initargs) as pool:
-        results = []
-        for result in tqdm(pool.imap_unordered(process_mean_pair, tasks), total=len(tasks)):
-            results.append(result)
+    # initargs = (angle_gam_data_path, unif_fn_data_path)
+    # with mp.Pool(processes=mp.cpu_count(), initializer=init_worker, initargs=initargs) as pool:
+    #     results = []
+    #     for result in tqdm(pool.imap_unordered(process_mean_pair, tasks), total=len(tasks)):
+    #         results.append(result)
 
+    # convert tasks to a JAX array, vectorise and use pmap on GPU
+    #tasks = jax.device_put(jnp.array(tasks))
+    # Ensure tasks are batched correctly
+    # Convert tasks into a tree structure
+    batched_tasks = jax.tree_util.tree_map(lambda *xs: jnp.array(xs), *tasks)
+
+    # Vectorize the task processing function
+    pmap_process_task = jax.pmap(
+        lambda i, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk:
+        process_mean_pair((i, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
+    )
+
+    # Process tasks on the GPU using vmap
+    results = pmap_process_task(
+        batched_tasks[0],  # i
+        batched_tasks[1],  # ut
+        batched_tasks[2],  # us_n
+        batched_tasks[3],  # kappa1_flat
+        batched_tasks[4],  # kappa2_flat
+        batched_tasks[5],  # num_sim
+        batched_tasks[6],  # data_slice
+        batched_tasks[7],  # p_common
+        batched_tasks[8],  # kappa_indices_chunk
+    )
+
+    # results = tqdm(jax.vmap(process_mean_pair)(tasks))
+    # results = jnp.array(results)
 
     # Collect and combine results across chunks of concentrations 
     optimal_kappa_pairs = {}
@@ -142,16 +178,21 @@ def find_optimal_kappas():
     return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
+    # Set the multiprocessing start method to 'spawn'
+    # mp.set_start_method('spawn', force=True)
+
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
 
     num_sim = 1000
     D = 250  # grid dimension
-    angle_gam_data_path = 'D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl'
-    unif_fn_data_path = 'D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl'
+    angle_gam_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/base_bayesian_contour_1_circular_gam_jax.pkl'
+    unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free_jax.pkl'
     p_commons = [0, .2, .5, .7, 1]
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
+
+    # Initialize the estimator inside the main block
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
@@ -162,7 +203,7 @@ if __name__ == '__main__':
     if use_high_cc_error_pairs:
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data,
-                                        max_samples=2)
+                                        max_samples=50)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,

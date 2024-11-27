@@ -2,8 +2,9 @@ import numpy as np
 import causal_inference
 import utils
 from scipy.stats import vonmises
-from scipy.special import i0
+from jax.scipy.special import i0
 import matplotlib.pyplot as plt
+import jax.numpy as jnp
 
 
 def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
@@ -22,8 +23,8 @@ def get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2):
     assert utils.mus_shape_match(mu1, mu2), f'Means shape {mu1.shape}, {mu2.shape} do not match'
     assert utils.mu_kappa_shape_match(mu1, kappa1), f'Mean shape {mu1.shape}, and concentration shape {kappa1.shape} do not match'
     assert utils.mu_kappa_shape_match(mu2, kappa2), f'Mean shape {mu2.shape}, and concentration shape {kappa2.shape} do not match'
-    mu = utils.wrap(mu2 + np.arctan2(np.sin(mu1-mu2), kappa2/kappa1 + np.cos(mu1-mu2)))
-    k = np.sqrt((kappa1**2) + (kappa2**2) + 2*kappa1*kappa2*np.cos(mu1 - mu2))
+    mu = utils.wrap(mu2 + jnp.arctan2(jnp.sin(mu1-mu2), kappa2/kappa1 + jnp.cos(mu1-mu2)))
+    k = jnp.sqrt((kappa1**2) + (kappa2**2) + 2*kappa1*kappa2*jnp.cos(mu1 - mu2))
     return mu, k
 
 def product_of_von_Mises(mu1, kappa1, mu2, kappa2, plot=False):
@@ -41,13 +42,13 @@ def product_of_von_Mises(mu1, kappa1, mu2, kappa2, plot=False):
     None
     """
     mu_c, kappa_c = get_cue_combined_mean_params(mu1, kappa1, mu2, kappa2)
-    x_domain = np.linspace(-np.pi, np.pi, 100000)
+    x_domain = jnp.linspace(-jnp.pi, jnp.pi, 100000)
     product_pdf = vonmises.pdf(x=x_domain, loc=mu1, kappa=kappa1) * vonmises.pdf(x=x_domain, loc=mu2, kappa=kappa2)
     combined_pdf = vonmises.pdf(x=x_domain, loc=mu_c, kappa=kappa_c)
-    assert np.allclose(product_pdf / np.sum(product_pdf), combined_pdf / np.sum(combined_pdf), atol=1e-5)
+    assert jnp.allclose(product_pdf / jnp.sum(product_pdf), combined_pdf / jnp.sum(combined_pdf), atol=1e-5)
     if plot:
-        plt.plot(x_domain, product_pdf / np.sum(product_pdf), label='normalised product')
-        plt.plot(x_domain, combined_pdf / np.sum(combined_pdf), linestyle='--', label='combined density')
+        plt.plot(x_domain, product_pdf / jnp.sum(product_pdf), label='normalised product')
+        plt.plot(x_domain, combined_pdf / jnp.sum(combined_pdf), linestyle='--', label='combined density')
         plt.title(f'Product of densities VM({mu1, kappa1}), VM({mu2, kappa2})')
         plt.legend()
         plt.show()
@@ -56,7 +57,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
     def __init__(self, decision_rule='mean', simulate=False):
         super().__init__(distribution='vonMises', decision_rule=decision_rule)
         self.simulate = simulate
-        self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
+        self.s_domain = jnp.linspace(-jnp.pi, jnp.pi, 1000).reshape(1, 1, 1, -1)
 
     def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
         """
@@ -140,8 +141,8 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
         p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
         # p_s = 1 / len(self.s_domain)
-        p_s = 1 / (2*np.pi) # using uniform prior
-        return np.trapz(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
+        p_s = 1 / (2*jnp.pi) # using uniform prior
+        return jnp.trapz(p_x_v_given_s*p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
 
     def likelihood_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, use_log=True):
         """
@@ -170,11 +171,11 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         #print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
         if use_log:
-            bessels_ratio = np.log(i0(kappa_c)) - np.log(i0(sigma_a)) - np.log(i0(sigma_v))
-            bessels_ratio = np.exp(bessels_ratio)
+            bessels_ratio = jnp.log(i0(kappa_c)) - jnp.log(i0(sigma_a)) - jnp.log(i0(sigma_v))
+            bessels_ratio = jnp.exp(bessels_ratio)
         else:
             bessels_ratio = i0(kappa_c) / (i0(sigma_a)*i0(sigma_v))
-        return bessels_ratio / ((2*np.pi)**2)
+        return bessels_ratio / ((2*jnp.pi)**2)
     
     def sim_likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
         """
@@ -204,8 +205,8 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
         p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
         # p_s = 1 / len(self.s_domain)
-        p_s = 1 / (2*np.pi) # using uniform prior
-        return np.trapz(p_x_v_given_s*p_s, axis=-1, x=self.s_domain) * np.trapz(p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
+        p_s = 1 / (2*jnp.pi) # using uniform prior
+        return jnp.trapz(p_x_v_given_s*p_s, axis=-1, x=self.s_domain) * jnp.trapz(p_x_a_given_s*p_s, axis=-1, x=self.s_domain)
 
     def likelihood_separate_causes(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p):
         """
@@ -233,7 +234,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         if self.simulate:
             return self.sim_likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         #print('Computing p(x_V, x_A| C=2) using analytic solution on sampled x_V, x_A')
-        return (1/(2*np.pi)**2) * np.ones_like(x_v)
+        return (1/(2*jnp.pi)**2) * jnp.ones_like(x_v)
 
     def posterior_prob_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
         """
@@ -310,11 +311,11 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         - x_as (np.ndarray): Samples for the second sensory input of shape (n_means, n_samples).
         """
         # Generate s_v and s_a of size n_means with uniform values in [-pi, pi]
-        s = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+        s = jnp.random.uniform(low=-jnp.pi, high=jnp.pi, size=n_means)
 
         # Generate x_vs and x_as with shape (n_means, n_samples) of Von Mises samples
-        x_vs = np.zeros((n_means, n_samples))
-        x_as = np.zeros((n_means, n_samples))
+        x_vs = jnp.zeros((n_means, n_samples))
+        x_as = jnp.zeros((n_means, n_samples))
 
         for i in range(n_means):
             x_vs[i] = utils.wrap(vonmises(loc=s[i], kappa=kappa_1[i]).rvs(size=n_samples))
@@ -340,12 +341,12 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         - x_as (np.ndarray): Samples for the second sensory input of shape (n_means, n_samples).
         """
         # Generate s_v and s_a of size n_means with uniform values in [-pi, pi]
-        s_v = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
-        s_a = np.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+        s_v = jnp.random.uniform(low=-np.pi, high=np.pi, size=n_means)
+        s_a = jnp.random.uniform(low=-np.pi, high=np.pi, size=n_means)
 
         # Generate x_vs and x_as with shape (n_means, n_samples) of Von Mises samples
-        x_vs = np.zeros((n_means, n_samples))
-        x_as = np.zeros((n_means, n_samples))
+        x_vs = jnp.zeros((n_means, n_samples))
+        x_as = jnp.zeros((n_means, n_samples))
 
         for i in range(n_means):
             x_vs[i] = utils.wrap(vonmises(loc=s_v[i], kappa=kappa_1[i]).rvs(size=n_samples))
@@ -354,12 +355,12 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         return s_v, s_a, x_vs, x_as
 
     def generate_samples_causal_inference(self, p_common, n_means, n_samples, kappa_1, kappa_2):
-        ps = np.random.binomial(n=1, size=n_samples, p=p_common)
+        ps = jnp.random.binomial(n=1, size=n_samples, p=p_common)
         n_common_cause = sum(ps)
         _, _, x_vs_C2, x_as_C2 = self.generate_samples_two_causes(n_means, n_samples-n_common_cause, kappa_1, kappa_2)
         _, x_vs_C1, x_as_C1 = self.generate_samples_common_cause(n_means, n_common_cause, kappa_1, kappa_2)
-        x_vs = np.concatenate([x_vs_C1.flatten(), x_vs_C2.flatten()])
-        x_as = np.concatenate([x_as_C1.flatten(), x_as_C2.flatten()])
+        x_vs = jnp.concatenate([x_vs_C1.flatten(), x_vs_C2.flatten()])
+        x_as = jnp.concatenate([x_as_C1.flatten(), x_as_C2.flatten()])
         return x_vs, x_as
     
 def generative_model():

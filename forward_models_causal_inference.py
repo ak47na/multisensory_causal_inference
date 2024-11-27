@@ -1,20 +1,98 @@
 import numpy as np
 import pickle
 import uniformised_space_utils as usu
-from scipy.stats import vonmises, circmean
+from jax.scipy.stats import vonmises
+#from scipy.stats import circmean
 import matplotlib.pyplot as plt
 from custom_causal_inference import CustomCausalInference
 from repulsion_hypothesis import repulsion_value
 import utils
+import jax.numpy as jnp
+import jax
+from functools import partial
 
+def circmean_jax(theta, high=2*jnp.pi, low=0.0, axis=None):
+    """
+    Compute the circular mean of angles using JAX, with specified high and low boundaries.
+
+    Parameters:
+    - theta: JAX array of angles.
+    - high: Upper boundary for circular mean computation.
+    - low: Lower boundary for circular mean computation.
+    - axis: Axis or axes along which the mean is computed.
+
+    Returns:
+    - Circular mean as a JAX array.
+    """
+    # Map theta to [low, high)
+    theta = (theta - low) % (high - low) + low
+
+    # Convert theta to radians in [0, 2π)
+    ang = (theta - low) * (2 * jnp.pi) / (high - low)
+
+    # Compute mean sine and cosine
+    sin_mean = jnp.mean(jnp.sin(ang), axis=axis)
+    cos_mean = jnp.mean(jnp.cos(ang), axis=axis)
+
+    # Compute the arctangent
+    ang_mean = jnp.arctan2(sin_mean, cos_mean)
+
+    # Convert back to original range
+    mean = ang_mean * (high - low) / (2 * jnp.pi)
+    mean = (mean - low) % (high - low) + low
+
+    return mean
+
+def sample_vonmises(key, loc, kappa): #num_sim, batch_size, kappa_size):
+    """
+    Sample from a von Mises distribution using JAX
+
+    Parameters:
+    - key: JAX random key
+    - loc: Mean direction (array of shape [batch_size, 1])
+    - kappa: Concentration parameter (array of shape [batch_size, kappa_size])
+    - num_sim: Number of simulations (int, fixed)
+    - batch_size: Size of the batch (int, fixed)
+    - kappa_size: Size of kappa dimension (int, fixed)
+
+    Returns:
+    - Samples from the von Mises distribution.
+    """
+    size = (1000, 1, 1000)
+    
+    # Split the random key for reproducibility
+    key, subkey1, subkey2 = jax.random.split(key, 3)
+
+    # sample uniform random values
+    u1 = jax.random.uniform(subkey1, shape=size)
+    u2 = jax.random.uniform(subkey2, shape=size)
+
+    # rejection samples
+    a = 1 + jnp.sqrt(1 + 4 * kappa**2)
+    b = (a - jnp.sqrt(2 * a)) / (2 * kappa)
+    r = (1 + b**2) / (2 * b)
+
+    z = jnp.cos(jnp.pi * u1)
+    f = (1 + r * z) / (r + z)
+    c = kappa * (r - f)
+
+    accepted = u2 < c * (2 - c)
+    theta = jnp.where(
+        accepted,
+        loc + jnp.sign(u2 - 0.5) * jnp.arccos(f),
+        jnp.nan,
+    )
+
+    # wrap angles to [-pi, pi]
+    return jnp.mod(theta + jnp.pi, 2 * jnp.pi) - jnp.pi
 
 def reshape_kappa_for_sampling(kappa):
     if isinstance(kappa, (int, float)):
         # Fixed concentration for all means
-        return np.array([[kappa]])
+        return jnp.array([[kappa]])
     elif kappa.ndim == 1:
         # The same possible concentration values for all means, reshape to (1, len(kappa))
-        return kappa[np.newaxis, :]
+        return kappa[jnp.newaxis, :]
     else:
         # Different possible concentrations for means, shape must be (len(mus), len(kappas))
         assert (kappa.ndim == 2)
@@ -25,7 +103,7 @@ def reshape_kappa_for_causal_inference(kappa, num_mus):
     if kappa.ndim == 2:
         assert (kappa.shape[0] == num_mus)
     kappa = reshape_kappa_for_sampling(kappa)
-    kappa = np.tile(kappa, reps=(num_mus, 1))
+    kappa = jnp.tile(kappa, reps=(num_mus, 1))
     assert (kappa.ndim == 2) and (kappa.shape[0] == num_mus)
     return kappa
 
@@ -44,7 +122,7 @@ class CausalEstimator:
         self.mu_p=mu_p
         self.sigma_p=sigma_p
         self.num_sim = num_sim
-        self.grid = np.linspace(-np.pi, np.pi, num=250)
+        self.grid = jnp.linspace(-jnp.pi, jnp.pi, num=250)
 
     def get_vm_samples(self, num_sim, mu_t, mu_s_n, kappa1, kappa2):
         """
@@ -64,8 +142,12 @@ class CausalEstimator:
         """
         kappa1 = reshape_kappa_for_sampling(kappa1)
         kappa2 = reshape_kappa_for_sampling(kappa2)
-        t_samples = vonmises(loc=mu_t[:, np.newaxis], kappa=kappa1).rvs(size=(num_sim, mu_t.shape[0], kappa1.shape[1]))
-        s_n_samples = vonmises(loc=mu_s_n[:, np.newaxis], kappa=kappa2).rvs(size=(num_sim, mu_s_n.shape[0], kappa2.shape[1]))
+        key = jax.random.PRNGKey(0)
+        t_samples = sample_vonmises(key=key,loc=mu_t[:, jnp.newaxis], kappa=kappa1)#,num_sim=num_sim, batch_size=mu_t.shape[0], kappa_size=kappa1.shape[1])
+        s_n_samples = sample_vonmises(key=key,loc=mu_s_n[:, jnp.newaxis], kappa=kappa2)#,num_sim=num_sim, batch_size=mu_s_n.shape[0], kappa_size=kappa2.shape[1])
+ 
+        # t_samples = vonmises(loc=mu_t[:, np.newaxis], kappa=kappa1).rvs(size=(num_sim, mu_t.shape[0], kappa1.shape[1]))
+        # s_n_samples = vonmises(loc=mu_s_n[:, np.newaxis], kappa=kappa2).rvs(size=(num_sim, mu_s_n.shape[0], kappa2.shape[1]))
         return t_samples, s_n_samples
     
     def forward_from_means(self, mu_t, mu_s_n, kappa1, kappa2, p_common, num_sim=None):
@@ -127,17 +209,17 @@ class CausalEstimator:
                                                                     sigma_p=self.sigma_p,
                                                                     pi_c=p_common)
         # Find circular mean across "optimal" estimates for samples.
-        mean_t_est = circmean(self.unif_map.unif_space_to_angle_space(responses[0]), 
-                                low=-np.pi, high=np.pi, axis=0)
-        mean_sn_est = circmean(self.unif_map.unif_space_to_angle_space(responses[1]),
-                                low=-np.pi, high=np.pi, axis=0)
+        mean_t_est = circmean_jax(self.unif_map.unif_space_to_angle_space(responses[0]), 
+                                low=-jnp.pi, high=jnp.pi, axis=0)
+        mean_sn_est = circmean_jax(self.unif_map.unif_space_to_angle_space(responses[1]),
+                                low=-jnp.pi, high=jnp.pi, axis=0)
         return responses, posterior_p_common, mean_t_est, mean_sn_est
     
 
 if __name__ == "__main__":
     causal_inference_estimator = CausalEstimator(model=CustomCausalInference(decision_rule='mean'),
-                                                 angle_gam_data_path='D:/AK_Q1_2024/Gatsby/data/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam.pkl',
-                                                 unif_fn_data_path='D:/AK_Q1_2024/Gatsby/uniform_model_base_inv_kappa_free.pkl')
+                                                 angle_gam_data_path='/nfs/ghome/live/kdusterwald/Documents/causal_inf/base_bayesian_contour_1_circular_gam/base_bayesian_contour_1_circular_gam_jax.pkl',
+                                                 unif_fn_data_path='/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free_jax.pkl')
     p_commons = [0, .2, .5, .7, 1]
     results = {
         'responses': [], 

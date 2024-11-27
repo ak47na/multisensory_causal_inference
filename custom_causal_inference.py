@@ -2,6 +2,7 @@ import numpy as np
 from von_mises_causal_inference import VonMisesCausalInference, get_cue_combined_mean_params
 import distributions
 from utils import wrap
+import jax.numpy as jnp
 
 
 class CustomCausalInference(VonMisesCausalInference):
@@ -9,7 +10,7 @@ class CustomCausalInference(VonMisesCausalInference):
         super().__init__(decision_rule=decision_rule)
         self.simulate = simulate
         self.interp = interp
-        self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
+        self.s_domain = jnp.linspace(-jnp.pi, jnp.pi, 1000).reshape(1, 1, 1, -1)
 
     def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
         """
