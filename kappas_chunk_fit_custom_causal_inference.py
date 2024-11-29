@@ -153,7 +153,7 @@ if __name__ == '__main__':
     D = 250  # grid dimension
     angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
     unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl'
-    p_commons = [0, .2, .5, .7, 1]
+    p_commons = np.linspace(0, 1, num=10)
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
         assert (use_unif_internal_space > 0)
-        indices = utils.select_evenly_spaced_integers(num=use_unif_internal_space)
+        indices = utils.select_evenly_spaced_integers(num=use_unif_internal_space, start=0, end=250//4)
         stimuli = np.linspace(-np.pi, np.pi, D)
         selected_internal_stimuli = stimuli[indices] # Uniform in internal space
         selected_stimuli = unif_map.unif_space_to_angle_space(selected_internal_stimuli)
