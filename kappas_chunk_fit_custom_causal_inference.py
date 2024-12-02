@@ -122,12 +122,14 @@ def find_optimal_kappas():
                 tasks.append((np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
 
     initargs = (angle_gam_data_path, unif_fn_data_path)
-    with mp.Pool(processes=mp.cpu_count(), initializer=init_worker, initargs=initargs) as pool:
+    print("Before creating multiprocessing pool")
+    with mp.Pool(processes=int(os.environ['SLURM_CPUS_PER_TASK']), initializer=init_worker, initargs=initargs) as pool:
         results = []
-        for result in tqdm(pool.imap_unordered(process_mean_pair, tasks), total=len(tasks)):
+        print("Multiprocessing pool created")
+        for result in pool.imap_unordered(process_mean_pair, tasks):
             results.append(result)
-
-
+            print(f'Num results: {len(results)}, completed={100*len(results)/len(tasks)}%')
+    print("After multiprocessing pool!")
     # Collect and combine results across chunks of concentrations
     optimal_kappa_pairs = {}
     min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(r_n.shape[0]) for pc in p_commons}
@@ -144,7 +146,7 @@ def find_optimal_kappas():
 
 if __name__ == '__main__':
     # Set the multiprocessing start method to 'spawn'
-    #mp.set_start_method('spawn', force=True)
+    mp.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
@@ -173,6 +175,7 @@ if __name__ == '__main__':
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
         assert (use_unif_internal_space > 0)
+        # Select indices from quadrant [-np.pi, -np.pi/2)
         indices = utils.select_evenly_spaced_integers(num=use_unif_internal_space, start=0, end=250//4)
         stimuli = np.linspace(-np.pi, np.pi, D)
         selected_internal_stimuli = stimuli[indices] # Uniform in internal space
