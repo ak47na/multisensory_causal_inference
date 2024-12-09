@@ -176,7 +176,7 @@ if __name__ == '__main__':
     elif use_unif_internal_space != 0:
         assert (use_unif_internal_space > 0)
         # Select indices from quadrant [-np.pi, -np.pi/2)
-        indices = utils.select_evenly_spaced_integers(num=use_unif_internal_space, start=0, end=250//4)
+        indices = 250//4+utils.select_evenly_spaced_integers(num=use_unif_internal_space, start=0, end=250//4)
         stimuli = np.linspace(-np.pi, np.pi, D)
         selected_internal_stimuli = stimuli[indices] # Uniform in internal space
         selected_stimuli = unif_map.unif_space_to_angle_space(selected_internal_stimuli)
