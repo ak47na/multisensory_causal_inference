@@ -49,7 +49,7 @@ def process_mean_pair(args):
             - optimal_kappas (tuple): A tuple of optimal kappa1 and kappa2 values minimizing the error.
             - min_error (array-like): Minimum error achieved with the optimal kappa values.
     """
-    mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
+    task_idx, mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
 
     mu1 = ut[mean_indices]
     mu2 = us_n[mean_indices]
@@ -83,6 +83,8 @@ def process_mean_pair(args):
     optimal_kappa1 = kappa1_chunk[idx_min]
     optimal_kappa2 = kappa2_chunk[idx_min]
     min_error = np.min(errors, axis=1)
+    np.save(f'./learned_data/errors_{task_idx}.npy', arr=errors)
+
     print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
@@ -112,18 +114,26 @@ def find_optimal_kappas():
     kappa_indices = np.arange(total_kappa_combinations)
 
     num_chunks = (total_kappa_combinations + chunk_size - 1) // chunk_size
-
+    task_idx = 0
+    task_metadata = {}
     for i, data_slice in enumerate(r_n):
         for p_common in p_commons:
             for chunk_idx in range(num_chunks):
                 start_idx = chunk_idx * chunk_size
                 end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
                 kappa_indices_chunk = kappa_indices[start_idx:end_idx]
-                tasks.append((np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
-
+                tasks.append((task_idx, np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
+                task_metadata[task_idx] = {'mean_indices': np.array([i]),
+                                           'p_common': p_common,
+                                           'kappa_indices': (start_idx, end_idx)}
+                task_idx += 1
+    with open('./learned_data/task_metadata.pkl', 'wb') as f:
+        pickle.dump(task_metadata, f)
     initargs = (angle_gam_data_path, unif_fn_data_path)
     print("Before creating multiprocessing pool")
-    with mp.Pool(processes=int(os.environ['SLURM_CPUS_PER_TASK']), initializer=init_worker, initargs=initargs) as pool:
+    num_processes = int(os.environ['SLURM_CPUS_PER_TASK'])
+    #num_processes = os.cpu_count()
+    with mp.Pool(processes=num_processes, initializer=init_worker, initargs=initargs) as pool:
         results = []
         print("Multiprocessing pool created")
         for result in pool.imap_unordered(process_mean_pair, tasks):
@@ -224,8 +234,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
@@ -250,7 +260,6 @@ if __name__ == '__main__':
 
     plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
     plt.show()
-
     # Save optimal parameters
     with open('./learned_data/optimal_kappa_pairs.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
