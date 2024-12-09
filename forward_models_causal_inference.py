@@ -136,8 +136,10 @@ class CausalEstimator:
 
 if __name__ == "__main__":
     causal_inference_estimator = CausalEstimator(model=CustomCausalInference(decision_rule='mean'),
-                                                 angle_gam_data_path='./base_bayesian_contour_1_circular_gam.pkl',
-                                                 unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl')
+                                                angle_gam_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/base_bayesian_contour_1_circular_gam.pkl',
+                                                unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free.pkl')
+                                                # angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl',
+                                                # unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl')
     p_commons = [0, .2, .5, .7, 1]
     results = {
         'responses': [], 
