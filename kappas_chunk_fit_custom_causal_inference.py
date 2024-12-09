@@ -12,6 +12,7 @@ from custom_causal_inference import CustomCausalInference
 import forward_models_causal_inference
 import jax
 import jax.numpy as jnp
+import submitit
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -108,7 +109,7 @@ def find_optimal_kappas():
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
 
     # Adjust based on memory availability
-    chunk_size = 4000
+    chunk_size = 1000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = jnp.arange(total_kappa_combinations)
@@ -142,7 +143,7 @@ def find_optimal_kappas():
     batched_tasks = jax.tree_util.tree_map(lambda *xs: jnp.array(xs), *tasks)
 
     # Vectorize the task processing function
-    pmap_process_task = jax.pmap(
+    pmap_process_task = jax.vmap(
         lambda i, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk:
         process_mean_pair((i, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
     )
@@ -176,6 +177,63 @@ def find_optimal_kappas():
             min_error_for_idx_pc[key] = min_error
 
     return optimal_kappa_pairs, min_error_for_idx_pc
+
+def set_up_param_search():
+    parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
+    parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
+
+    num_sim = 1000
+    D = 250  # grid dimension
+    angle_gam_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/base_bayesian_contour_1_circular_gam_jax.pkl'
+    unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free_jax.pkl'
+    p_commons = [0, .2, .5, .7, 1]
+    args = parser.parse_args()
+    use_high_cc_error_pairs = args.use_high_cc_error_pairs
+
+    # Initialize the estimator inside the main block
+
+    causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
+        model=CustomCausalInference(decision_rule='mean'),
+        angle_gam_data_path=angle_gam_data_path,
+        unif_fn_data_path=unif_fn_data_path)
+    unif_map = causal_inference_estimator.unif_map
+
+    if use_high_cc_error_pairs:
+        s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
+                                        causal_inference_estimator.gam_data,
+                                        max_samples=50)
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+    else:
+        s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
+                                        causal_inference_estimator.gam_data)
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+
+        # Further filtering
+        num_means = 2
+        step = len(s_n) // num_means
+        indices = np.arange(0, s_n.shape[0], step=step)
+        mu_x_dim = len(indices)
+        s_n = s_n[indices][:, indices]
+        t = t[indices][:, indices]
+        r_n = r_n[indices][:, indices]
+        plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
+
+    min_kappa1, max_kappa1, num_kappa1s = 0.5, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 0.5, 300, 100
+    s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
+    us_n = unif_map.angle_space_to_unif_space(s_n)
+    ut = unif_map.angle_space_to_unif_space(t)
+    kappa1 = np.logspace(start=np.log10(min_kappa1), stop=np.log10(max_kappa1), num=num_kappa1s, base=10)
+    kappa2 = np.logspace(start=np.log10(min_kappa2), stop=np.log10(max_kappa2), num=num_kappa2s, base=10)
+    kappa1_grid, kappa2_grid = np.meshgrid(kappa1, kappa2, indexing='ij')
+    kappa1_flat, kappa2_flat = kappa1_grid.flatten(), kappa2_grid.flatten()
+    print(f'Performing causal inference for ut, us_n of shape {ut.shape, us_n.shape}')
+    plt.plot(kappa1, label='kappa1')
+    plt.plot(kappa2, label='kappa2')
+    plt.legend()
+    plt.show()
+
+    return
 
 if __name__ == '__main__':
     # Set the multiprocessing start method to 'spawn'
@@ -220,8 +278,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 0.5, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 0.5, 300, 100
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
