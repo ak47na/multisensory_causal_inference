@@ -1,13 +1,11 @@
 import multiprocessing as mp
 import os
 import numpy as np
-from scipy.stats import vonmises, circmean
 import utils
 import plots
 import matplotlib.pyplot as plt
 import argparse
 import pickle
-from tqdm import tqdm
 from custom_causal_inference import CustomCausalInference
 import forward_models_causal_inference
 
@@ -108,7 +106,7 @@ def find_optimal_kappas():
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
 
     # Adjust based on memory availability
-    chunk_size = 500
+    chunk_size = 5000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = np.arange(total_kappa_combinations)
@@ -185,7 +183,7 @@ if __name__ == '__main__':
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
         assert (use_unif_internal_space > 0)
-        # Select indices from quadrant [-np.pi, -np.pi/2)
+        # Select indices from quadrant [-np.pi/2, 0)
         indices = 250//4+utils.select_evenly_spaced_integers(num=use_unif_internal_space, start=0, end=250//4)
         stimuli = np.linspace(-np.pi, np.pi, D)
         selected_internal_stimuli = stimuli[indices] # Uniform in internal space
@@ -234,8 +232,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
