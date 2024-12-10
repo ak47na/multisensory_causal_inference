@@ -134,11 +134,13 @@ def find_optimal_kappas():
     print("Before creating multiprocessing pool")
     # num_processes = int(os.environ['SLURM_CPUS_PER_TASK'])
 
-    log_folder = 'slurm/logs/%j'
+    log_folder = '/ceph/scratch/kdusterwald/slurm/logs/%j'
     executor = submitit.AutoExecutor(folder=log_folder)
     # slurm_array_parallelism tells the scheduler to only run at most 2 jobs at once. By default, this is several hundreds (no HPC default!)
-    executor.update_parameters(slurm_array_parallelism=32,slurm_partition='cpu', timeout_min=1000, mem_gb=32, cpus_per_task=8)
+    executor.update_parameters(slurm_array_parallelism=16,slurm_partition='cpu', timeout_min=1000, mem_gb=32, cpus_per_task=8)
+    print('Executing multiprocessing jobs')
     jobs = executor.map_array(process_mean_pair, tasks)  # just a list of jobs
+    print('Collating multiprocessing jobs')
     results = [job.result() for job in jobs]
 
     #num_processes = os.cpu_count()
@@ -245,7 +247,7 @@ if __name__ == '__main__':
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
 
         # Further filtering
-        num_means = 45
+        num_means = 4
         step = len(s_n) // num_means
         indices = np.arange(0, s_n.shape[0], step=step)
         mu_x_dim = len(indices)
@@ -254,8 +256,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
@@ -281,11 +283,11 @@ if __name__ == '__main__':
     plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
     plt.show()
     # Save optimal parameters
-    with open('./learned_data/optimal_kappa_pairs_75.pkl', 'wb') as f:
+    with open('./learned_data/optimal_kappa_pairs_4.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open('./learned_data/min_error_for_idx_pc_75.pkl', 'wb') as f:
+    with open('./learned_data/min_error_for_idx_pc_4.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open('./learned_data/min_error_for_idx_75.pkl', 'wb') as f:
+    with open('./learned_data/min_error_for_idx_4.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
     np.save('./learned_data/selected_s_n.npy', arr=s_n)
     np.save('./learned_data/selected_t.npy', arr=t)
