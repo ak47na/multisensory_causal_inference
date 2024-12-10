@@ -8,13 +8,13 @@ from repulsion_hypothesis import repulsion_value
 import utils
 
 
-def heatmap_f_s_n_t(f_s_n_t, s_n, t, f_name):
+def heatmap_f_s_n_t(f_s_n_t, s_n, t, f_name, xlabel='s_n', ylabel='t'):
     plt.figure(figsize=(8, 6))
-    plt.pcolormesh(s_n[0], t[:,0], f_s_n_t, shading='auto', cmap='RdBu_r')
+    plt.pcolormesh(s_n[0], t[:,0], f_s_n_t, shading='auto', cmap='twilight')
     plt.colorbar(label=f_name)
-    plt.xlabel('s_n')
-    plt.ylabel('t')
-    plt.title(f'Heatmap of {f_name} with s_n and t')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(f'Heatmap of {f_name} with {xlabel} and {ylabel}')
     plt.show()
     plt.clf()
 
@@ -37,8 +37,8 @@ def plot_estimate(us_n, ut, r_n, mu_x_dim, estimate, est_label, plot_heatmap):
             for i in range(estimate.shape[1]):
                 plt.pcolormesh(us_n[:mu_x_dim], uts_unq, 
                                 estimate[:,i].reshape(mu_x_dim,mu_x_dim), 
-                                shading='auto', cmap='RdBu_r')
-                plt.colorbar(label=est_label)
+                                shading='auto', cmap='twilight')
+                plt.colorbar(label=est_label, cmap='twilight')
                 plt.title(f'Heatmap for {est_label}_{i}')
                 plt.xlabel('us_n')
                 plt.ylabel('ut')

@@ -83,7 +83,7 @@ class UnifMap:
         # print("X values for probabilities 0.1, 0.5, 0.9:", x_values)
 
         # Plot the inverse CDF
-        plt.figure(figsize=(8, 6))
+        #plt.figure(figsize=(8, 6))
         p = np.linspace(0, 1, 1000)
         # plt.plot(p, inverse_cdf(p))
         # plt.xlabel('Probability')

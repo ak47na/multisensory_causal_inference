@@ -134,7 +134,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         assert utils.mus_shape_match(x_v, x_a), f'Means shape {x_v.shape}, {x_a.shape} do not match'
         assert utils.mu_kappa_shape_match(x_v, sigma_v), f'Mean shape {x_v.shape}, and concentration shape {sigma_v.shape} do not match'
         assert utils.mu_kappa_shape_match(x_a, sigma_a), f'Mean shape {x_a.shape}, and concentration shape {sigma_a.shape} do not match'
-        print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
+        #print('Computing p(x_V, x_A| C=1) using numerical integration and sampled x_V, x_A')
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
@@ -167,7 +167,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
             return self.sim_likelihood_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises common cause likelihood only implemented for uniform prior")
-        print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
+        #print('Computing p(x_V, x_A| C=1) using analytic solution on sampled x_V, x_A')
         mu_c, kappa_c = get_cue_combined_mean_params(mu1=x_a, mu2=x_v, kappa1=sigma_a, kappa2=sigma_v)
         if use_log:
             bessels_ratio = np.log(i0(kappa_c)) - np.log(i0(sigma_a)) - np.log(i0(sigma_v))
@@ -200,7 +200,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
         assert utils.mu_kappa_shape_match(x_a, sigma_a), f'Mean shape {x_a.shape}, and concentration shape {sigma_a.shape} do not match'
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
-        print('Computing p(x_V, x_A| C=2) using numerical integration and sampled x_V, x_A')
+        #print('Computing p(x_V, x_A| C=2) using numerical integration and sampled x_V, x_A')
         p_x_v_given_s = vonmises.pdf(x=x_a[..., np.newaxis], loc=self.s_domain, kappa=sigma_a)
         p_x_a_given_s = vonmises.pdf(x=x_v[..., np.newaxis], loc=self.s_domain, kappa=sigma_v)
         # p_s = 1 / len(self.s_domain)
@@ -232,7 +232,7 @@ class VonMisesCausalInference(causal_inference.CausalInference):
             raise NotImplementedError("Von Mises separate cause likelihood only implemented for uniform prior")
         if self.simulate:
             return self.sim_likelihood_separate_causes(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p)
-        print('Computing p(x_V, x_A| C=2) using analytic solution on sampled x_V, x_A')
+        #print('Computing p(x_V, x_A| C=2) using analytic solution on sampled x_V, x_A')
         return (1/(2*np.pi)**2) * np.ones_like(x_v)
 
     def posterior_prob_common_cause(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c):
