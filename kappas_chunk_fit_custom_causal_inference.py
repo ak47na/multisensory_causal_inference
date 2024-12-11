@@ -159,6 +159,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
     parser.add_argument('--use_unif_internal_space', type=int, default=0, help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
+    parser.add_argument('--use_fixed_stimuli_pairs', type=str, default='', help='True if the s_n, t, r_n tuples are selected from custom files')
     num_sim = 1000
     D = 250  # grid dimension
     angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
@@ -167,6 +168,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
+    stimuli_pairs_path = args.use_fixed_stimuli_pairs
 
     # Initialize the estimator inside the main block
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
@@ -217,6 +219,13 @@ if __name__ == '__main__':
         plt.show()
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
+    elif len(stimuli_pairs_path) > 0:
+        s_n_path, t_path, r_n_path = stimuli_pairs_path.split(';')
+        s_n = np.load(s_n_path)
+        t = np.load(t_path)
+        r_n = np.load(r_n_path)
+        assert ((s_n.shape == t.shape) and (s_n.shape == r_n.shape)), f"Shapes of stimuli and target don't match: {s_n.shape, t.shape, r_n.shape}"
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                         causal_inference_estimator.gam_data)

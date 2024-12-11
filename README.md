@@ -65,6 +65,51 @@ For each pair of samples $x_1, x_2$ we:
 Finally, we take the circular mean across sample pairs $x_1, x_2$ to obtain the "mean" estimates of $s_n$ as a function of $t, s_n$ for all $(t, s_n)$ grid pairs.
 
 
+## Finding optimal concentrations associated with stimuli pairs
+
+The file `kappas_chunk_fit_custom_causal_inference.py` runs a parameter search to find optimal $\kappa$ values (and `p_common`) for the custom causal inference model described. The script uses multiprocessing to evaluate many parameter combinations and identify those that minimize model error relative to target GAM data.
+
+**Prerequisites:**
+- Confirm that `angle_gam_data_path` and `unif_fn_data_path` files (e.g., `base_bayesian_contour_1_circular_gam.pkl` and `uniform_model_base_inv_kappa_free.pkl`) are present in the current directory or appropriately referenced.  
+- The code is designed to run on the cluster and may use environment variables (e.g., `SLURM_CPUS_PER_TASK`) to determine the number of CPU cores to use. If running locally, ensure the code is adjusted as needed (e.g. using `os.cpu_count()`).
+
+**Basic Command:**
+```bash
+python kappas_chunk_fit_custom_causal_inference.py
+```
+**Optional Arguments:**
+- `--use_high_cc_error_pairs`: Set this to `True` if you want to run optimization on a subset of stimulus pairs known to produce high errors when fitting cue-combination (cc) models. Defaults to `False`.
+  
+  Example:
+  ```bash
+  python kappas_chunk_fit_custom_causal_inference.py --use_high_cc_error_pairs=True
+  ```
+  
+- `--use_unif_internal_space`: Set to an integer value greater than 0 to fit on means of stimuli selected to be uniform in angle space. The set value `k` specifies how many means to select for each stimulus, resulting in an $k \times k$ grid. The default is `0` representing that means are selected uniformly in angle space.
+
+  Example:
+  ```bash
+  python kappas_chunk_fit_custom_causal_inference.py --use_unif_internal_space=50
+  ```
+
+**Example Usage:**
+```bash
+# Default run with no special arguments
+python kappas_chunk_fit_custom_causal_inference.py
+
+# Run on a high cue combination error subset of stimulus pairs
+python kappas_chunk_fit_custom_causal_inference.py --use_high_cc_error_pairs True
+
+# Use uniformly spaced internal stimuli 
+python kappas_chunk_fit_custom_causal_inference.py --use_unif_internal_space 100
+```
+
+**Outputs:**
+- **Optimized Parameters:** After completing the search, the script saves the optimal parameter pairs and associated errors to `.pkl` and `.npy` files in a directory named `learned_data`. You should find:
+  - `optimal_kappa_pairs.pkl`: A dictionary mapping each `(mean index, p_common)` pair to its optimal kappa values.
+  - `min_error_for_idx_pc.pkl` and `min_error_for_idx.pkl`: Files recording the minimum errors achieved for all `p_common` and the optimal `p_common` respectively.
+  - Additional `errors_{i}.npy` files capturing the causal inference errors found for the i-th task.
+
 ## References
 - Ernst, M. O., & Bülthoff, H. H. (2004). Merging the senses into a robust percept. Trends in Cognitive Sciences, 8(4), 162-169.
 - Kording, K. P., Beierholm, U., Ma, W. J., Quartz, S., Tenenbaum, J. B., & Shams, L. (2007). Causal inference in multisensory perception. PLOS ONE, 2(9), e943.
