@@ -26,7 +26,7 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
     unif_map = causal_inference_estimator.unif_map
     np.random.seed(os.getpid())
 
-def process_mean_pair(args):
+def process_mean_pair(args, max_to_save=50, error_threshold=0.0349066):
     """
     Processes pairs of means and finds the optimal kappa values that minimize the error
     between model predictions and GAM data for a chunk of kappa combinations.
@@ -60,6 +60,7 @@ def process_mean_pair(args):
     kappa2_chunk = kappa2_flat[kappa_indices]
 
     # Generate samples for running causal inference with concentrations from the kappa chunk
+    # t_samples, s_n_samples shape: [len(mean_indices), len(kappa1_flat), num_sim]
     t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(
         num_sim=num_sim,
         mu_t=mu1,
@@ -76,7 +77,7 @@ def process_mean_pair(args):
         kappa2=kappa2_chunk)
     del t_samples, s_n_samples
 
-    errors = compute_error(mean_sn_est, data_slice)
+    errors = compute_error(mean_sn_est, data_slice) # shape is [len(mean_indices), len(kappa1_flat)]
     assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
 
     # Find the pair of kappas with minimum error between r_n(s_n, t) and the mean optimal estimate
@@ -84,7 +85,17 @@ def process_mean_pair(args):
     optimal_kappa1 = kappa1_chunk[idx_min]
     optimal_kappa2 = kappa2_chunk[idx_min]
     min_error = np.min(errors, axis=1)
-    np.save(f'./learned_data/errors_{task_idx}.npy', arr=errors)
+    if max_to_save > 0:
+        mean_min_indices,  kappas_min_indices = np.where(errors < error_threshold)
+        if len(mean_min_indices) > max_to_save:
+            sorted_indices = np.argsort(errors, axis=None)
+            # Convert flattened indices back to 2D (row, column) indices
+            mean_min_indices,  kappas_min_indices = np.unravel_index(sorted_indices, errors.shape)[:max_to_save]
+        errors_dict = {'errors': errors[mean_indices, kappas_min_indices],
+                       'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
+                       'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
+        with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
+            pickle.dump(errors_dict, f)
 
     print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
@@ -137,7 +148,10 @@ def find_optimal_kappas():
     log_folder = '/ceph/scratch/kdusterwald/slurm/logs/%j'
     executor = submitit.AutoExecutor(folder=log_folder)
     # slurm_array_parallelism tells the scheduler to only run at most 2 jobs at once. By default, this is several hundreds (no HPC default!)
-    executor.update_parameters(slurm_array_parallelism=16,slurm_partition='cpu', timeout_min=1000, mem_gb=32, cpus_per_task=8)
+    executor.update_parameters(slurm_array_parallelism=16,
+                               slurm_partition='cpu', 
+                               timeout_min=1000, 
+                               mem_gb=32, cpus_per_task=8)
     print('Executing multiprocessing jobs')
     jobs = executor.map_array(process_mean_pair, tasks)  # just a list of jobs
     print('Collating multiprocessing jobs')
