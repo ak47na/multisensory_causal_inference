@@ -51,7 +51,7 @@ def process_mean_pair(args):
     """
     task_idx, mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
     max_to_save=50
-    error_threshold=0.0349066 
+    error_threshold=0.0349066
 
     mu1 = ut[mean_indices]
     mu2 = us_n[mean_indices]
@@ -61,6 +61,7 @@ def process_mean_pair(args):
     kappa2_chunk = kappa2_flat[kappa_indices]
 
     # Generate samples for running causal inference with concentrations from the kappa chunk
+    # t_samples, s_n_samples shape: [len(mean_indices), len(kappa1_flat), num_sim]
     t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(
         num_sim=num_sim,
         mu_t=mu1,
@@ -77,7 +78,7 @@ def process_mean_pair(args):
         kappa2=kappa2_chunk)
     del t_samples, s_n_samples
 
-    errors = compute_error(mean_sn_est, data_slice)
+    errors = compute_error(mean_sn_est, data_slice) # shape is [len(mean_indices), len(kappa1_flat)]
     assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
 
     # Find the pair of kappas with minimum error between r_n(s_n, t) and the mean optimal estimate
@@ -100,7 +101,7 @@ def process_mean_pair(args):
         
         with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
-    
+
     print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
