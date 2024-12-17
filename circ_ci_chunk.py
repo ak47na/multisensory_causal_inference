@@ -149,7 +149,10 @@ def find_optimal_kappas():
         pickle.dump(task_metadata, f)
     initargs = (angle_gam_data_path, unif_fn_data_path)
     print("Before creating multiprocessing pool")
-    num_processes = int(os.environ['SLURM_CPUS_PER_TASK'])
+    try:
+        num_processes = int(os.environ['SLURM_CPUS_PER_TASK'])
+    except KeyError:
+        print('Slurm CPU count not available')
 
     log_folder = '/ceph/scratch/kdusterwald/slurm/logs/%j'
     executor = submitit.AutoExecutor(folder=log_folder)
