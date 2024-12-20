@@ -189,9 +189,8 @@ def find_optimal_kappas():
                 optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
                 min_error_for_idx_pc[key] = min_error
         return optimal_kappa_pairs, min_error_for_idx_pc
-
-    min_job = executor.submit(report_min_error, results)
-    optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
+    
+    optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results)
 
 
 
