@@ -1,0 +1,4 @@
+slurm
+.venv
+__pycache__
+*.npy
