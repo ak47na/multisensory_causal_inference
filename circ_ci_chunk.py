@@ -24,7 +24,6 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path)
     unif_map = causal_inference_estimator.unif_map
-    np.random.seed(os.getpid())
 
 def process_mean_pair(args):
     """
@@ -56,6 +55,7 @@ def process_mean_pair(args):
 
     mu1 = ut[mean_indices]
     mu2 = us_n[mean_indices]
+    np.random.seed(os.getpid())
 
     # Select the chunk of kappa combinations
     kappa1_chunk = kappa1_flat[kappa_indices]
@@ -103,11 +103,25 @@ def process_mean_pair(args):
         with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
 
-    print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
+    #print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
 
-def find_optimal_kappas():
+
+def report_min_error(results, p_commons, num_data_points):
+    optimal_kappa_pairs = {}
+    min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(num_data_points) for pc in p_commons}
+
+    # Find the minimum error across kappa chunks
+    for mean_indices, p_common, optimal_kappa_pair, min_error in results:
+        idx = mean_indices[0]  # mean_indices is an array of one element *for now*
+        key = (idx, p_common)
+        if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx_pc[key]):
+            optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
+            min_error_for_idx_pc[key] = min_error
+    return optimal_kappa_pairs, min_error_for_idx_pc
+
+def find_optimal_kappas(local_run, user):
     """
     Finds the optimal kappa values that minimize the error between model predictions and GAM data
     by processing chunks of kappa combinations in parallel using multiprocessing.
@@ -147,72 +161,75 @@ def find_optimal_kappas():
                 task_idx += 1
     with open('./learned_data/task_metadata.pkl', 'wb') as f:
         pickle.dump(task_metadata, f)
-    initargs = (angle_gam_data_path, unif_fn_data_path)
-    print("Before creating multiprocessing pool")
-    try:
-        num_processes = int(os.environ['SLURM_CPUS_PER_TASK'])
-    except KeyError:
-        print('Slurm CPU count not available')
-
-    log_folder = '/ceph/scratch/kdusterwald/slurm/logs/%j'
-    executor = submitit.AutoExecutor(folder=log_folder)
-    # slurm_array_parallelism tells the scheduler to only run at most 2 jobs at once. By default, this is several hundreds (no HPC default!)
-    executor.update_parameters(slurm_array_parallelism=16,
-                               slurm_partition='cpu', 
-                               timeout_min=1000, 
-                               mem_gb=32, cpus_per_task=8)
-    print('Executing multiprocessing jobs')
-    jobs = executor.map_array(process_mean_pair, tasks)  # just a list of jobs
-    print('Collating multiprocessing jobs')
-    results = [job.result() for job in jobs]
-
-    #num_processes = os.cpu_count()
-    # with mp.Pool(processes=num_processes, initializer=init_worker, initargs=initargs) as pool:
-    #     results = []
-    #     print("Multiprocessing pool created")
-    #     for result in pool.imap_unordered(process_mean_pair, tasks):
-    #         results.append(result)
-    #         print(f'Num results: {len(results)}, completed={100*len(results)/len(tasks)}%')
-    print("After multiprocessing pool!")
-
-    # Collect and combine results across chunks of concentrations
-
-    def report_min_error(results):
-        optimal_kappa_pairs = {}
-        min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(r_n.shape[0]) for pc in p_commons}
-
-        # Find the minimum error across kappa chunks
-        for mean_indices, p_common, optimal_kappa_pair, min_error in results:
-            idx = mean_indices[0]  # mean_indices is an array of one element *for now*
-            key = (idx, p_common)
-            if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx_pc[key]):
-                optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-                min_error_for_idx_pc[key] = min_error
+    if local_run:
+        initargs = (angle_gam_data_path, unif_fn_data_path)
+        print("Before creating multiprocessing pool")
+        num_processes = os.cpu_count()
+        with mp.Pool(processes=num_processes, initializer=init_worker, initargs=initargs) as pool:
+            results = []
+            print("Multiprocessing pool created")
+            for result in pool.imap_unordered(process_mean_pair, tasks):
+                results.append(result)
+                print(f'Num results: {len(results)}, completed={100*len(results)/len(tasks)}%')
+        print("After multiprocessing pool!")
+        # Collect and combine results across chunks of concentrations
+        optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results, p_commons, r_n.shape[0])
         return optimal_kappa_pairs, min_error_for_idx_pc
-    
-    optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results)
+    else:
+        log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
+        executor = submitit.AutoExecutor(folder=log_folder)
+        num_processes = 8
+        # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
+        # By default, this is several hundreds (no HPC default!)
+        executor.update_parameters(slurm_array_parallelism=16,
+                                slurm_partition='cpu', 
+                                timeout_min=1000, 
+                                mem_gb=32, cpus_per_task=num_processes)
+        jobs = executor.map_array(process_mean_pair, tasks)  
+        job_ids = [job.job_id for job in jobs]
+        results = [job.result() for job in jobs]
+        # Collect and combine results across chunks of concentrations
+        report_min_executor = submitit.AutoExecutor(folder=log_folder)
+        report_min_executor.update_parameters(
+            slurm_partition='cpu',
+            timeout_min=1000,
+            mem_gb=32, cpus_per_task=num_processes,
+            # Set up Slurm dependency so that this job starts
+            # only after ALL listed job IDs complete successfully
+            slurm_additional_parameters={
+                "dependency": "afterok:" + ":".join(job_ids)
+            }
+        )
 
-
-
-    return optimal_kappa_pairs, min_error_for_idx_pc
+        min_job = report_min_executor.submit(report_min_error, results, p_commons, r_n.shape[0])
+        optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
+        return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
     # Set the multiprocessing start method to 'spawn'
     mp.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
+    parser.add_argument('--user', type=str, default='', help="Username for running user, used for selecting the log folder")
+    parser.add_argument('--local_run', type=bool, default=False, help='True if the script runs locally using multiprocessing')
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
     parser.add_argument('--use_unif_internal_space', type=int, default=0, help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     num_sim = 1000
     D = 250  # grid dimension
     # angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
     # unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl'
-    angle_gam_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/base_bayesian_contour_1_circular_gam.pkl'
-    unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free.pkl'
+    
     p_commons = np.linspace(0, 1, num=20)
     args = parser.parse_args()
+    user = args.user
+    local_run = args.local_run
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
+    data_pref = '.'
+    if not local_run:
+        data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
+    angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
+    unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
 
     # Initialize the estimator inside the main block
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
@@ -278,8 +295,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
@@ -293,7 +310,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    optimal_kappa_pairs, min_error_for_idx_pc = find_optimal_kappas()
+    optimal_kappa_pairs, min_error_for_idx_pc = find_optimal_kappas(local_run, user)
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
     min_error_for_idx = {}
     for key in min_error_for_idx_pc:
