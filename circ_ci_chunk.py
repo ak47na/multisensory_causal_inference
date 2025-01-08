@@ -179,8 +179,9 @@ def find_optimal_kappas(local_run, user):
     else:
         log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
         print(f'Running on the cluser, {len(tasks)} tasks')
+        print(f'Log folder: {log_folder}')
         executor = submitit.AutoExecutor(folder=log_folder)
-        num_processes = 8
+        num_processes = 10
         # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
         # By default, this is several hundreds (no HPC default!)
         executor.update_parameters(slurm_array_parallelism=16,
@@ -188,8 +189,10 @@ def find_optimal_kappas(local_run, user):
                                 timeout_min=1000, 
                                 mem_gb=32, cpus_per_task=num_processes)
         jobs = executor.map_array(process_mean_pair, tasks)  
+        print(f'Before running results')
         job_ids = [job.job_id for job in jobs]
         results = [job.result() for job in jobs]
+        print('Collecting results ...')
         # Collect and combine results across chunks of concentrations
         report_min_executor = submitit.AutoExecutor(folder=log_folder)
         report_min_executor.update_parameters(
