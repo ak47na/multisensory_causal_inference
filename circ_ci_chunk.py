@@ -1,13 +1,11 @@
 import multiprocessing as mp
 import os
 import numpy as np
-from scipy.stats import vonmises, circmean
 import utils
 import plots
 import matplotlib.pyplot as plt
 import argparse
 import pickle
-from tqdm import tqdm
 from custom_causal_inference import CustomCausalInference
 import forward_models_causal_inference
 import submitit
@@ -102,8 +100,8 @@ def process_mean_pair(args):
         
         with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
-
-    #print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
+    if local_run:
+        print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
 
@@ -140,7 +138,10 @@ def find_optimal_kappas(local_run, user):
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
 
     # Adjust based on memory availability
-    chunk_size = 1000
+    if local_run:
+        chunk_size = 500
+    else:
+        chunk_size = 1000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = np.arange(total_kappa_combinations)
@@ -216,9 +217,6 @@ if __name__ == '__main__':
     parser.add_argument('--use_unif_internal_space', type=int, default=0, help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     num_sim = 1000
     D = 250  # grid dimension
-    # angle_gam_data_path = './base_bayesian_contour_1_circular_gam.pkl'
-    # unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl'
-    
     p_commons = np.linspace(0, 1, num=20)
     args = parser.parse_args()
     user = args.user
