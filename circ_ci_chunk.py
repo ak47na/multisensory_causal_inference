@@ -141,7 +141,7 @@ def find_optimal_kappas(local_run, user):
     if local_run:
         chunk_size = 500
     else:
-        chunk_size = 1000
+        chunk_size = 2000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = np.arange(total_kappa_combinations)
@@ -181,7 +181,7 @@ def find_optimal_kappas(local_run, user):
         print(f'Running on the cluser, {len(tasks)} tasks')
         print(f'Log folder: {log_folder}')
         executor = submitit.AutoExecutor(folder=log_folder)
-        num_processes = 10
+        num_processes = 8
         # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
         # By default, this is several hundreds (no HPC default!)
         executor.update_parameters(slurm_array_parallelism=16,
