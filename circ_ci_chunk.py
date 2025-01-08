@@ -136,7 +136,7 @@ def find_optimal_kappas(local_run, user):
     """
     tasks = []
     print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
-
+    print(f'User={user}')
     # Adjust based on memory availability
     if local_run:
         chunk_size = 500
@@ -178,6 +178,7 @@ def find_optimal_kappas(local_run, user):
         return optimal_kappa_pairs, min_error_for_idx_pc
     else:
         log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
+        print(f'Running on the cluser, {len(tasks)} tasks')
         executor = submitit.AutoExecutor(folder=log_folder)
         num_processes = 8
         # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
@@ -201,7 +202,7 @@ def find_optimal_kappas(local_run, user):
                 "dependency": "afterok:" + ":".join(job_ids)
             }
         )
-
+        print('Before running min job')
         min_job = report_min_executor.submit(report_min_error, results, p_commons, r_n.shape[0])
         optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
         return optimal_kappa_pairs, min_error_for_idx_pc
