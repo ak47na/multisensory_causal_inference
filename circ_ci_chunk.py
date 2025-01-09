@@ -139,7 +139,7 @@ def find_optimal_kappas(local_run, user):
     if local_run:
         chunk_size = 500
     else:
-        chunk_size = 2000
+        chunk_size = 10000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = np.arange(total_kappa_combinations)
@@ -175,7 +175,7 @@ def find_optimal_kappas(local_run, user):
         optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results, p_commons, r_n.shape[0])
         return optimal_kappa_pairs, min_error_for_idx_pc
     else:
-        log_folder = f'/tmp/{user}_slurm_logs/%j'
+        log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
         print(f'Running on the cluser, {len(tasks)} tasks')
         # Create tmp directory for logging (logs will be deleted after the job terminates)
         try:
@@ -212,6 +212,12 @@ def find_optimal_kappas(local_run, user):
         print('Before running min job')
         min_job = report_min_executor.submit(report_min_error, results, p_commons, r_n.shape[0])
         optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
+        # Delete the log folder
+        try:
+            shutil.rmtree(log_folder)
+            print(f"Log directory '{log_folder}' has been deleted.")
+        except Exception as e:
+            print(f"Error deleting log directory '{log_folder}': {e}")
         return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
@@ -301,8 +307,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
