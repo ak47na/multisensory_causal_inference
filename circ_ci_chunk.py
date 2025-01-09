@@ -103,7 +103,7 @@ def process_mean_pair(args):
                        'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
                        'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
         
-        with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
+        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
         del errors_dict
     # Call gc.collect() if experiencing memory issues
