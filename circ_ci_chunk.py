@@ -100,8 +100,6 @@ def process_mean_pair(args):
         
         with open (f'./learned_data/errors_dict_{task_idx}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
-    if local_run:
-        print("Process ID: {}, mean shapes: {}, {}, min error {}".format(os.getpid(), mu1.shape, mu2.shape, min_error))
 
     return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
 
@@ -177,11 +175,16 @@ def find_optimal_kappas(local_run, user):
         optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results, p_commons, r_n.shape[0])
         return optimal_kappa_pairs, min_error_for_idx_pc
     else:
-        log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
+        log_folder = f'/tmp/{user}_slurm_logs/%j'
         print(f'Running on the cluser, {len(tasks)} tasks')
-        print(f'Log folder: {log_folder}')
+        # Create tmp directory for logging (logs will be deleted after the job terminates)
+        try:
+            os.makedirs(log_folder, exist_ok=False) # the directory should be delected after jobs terminate
+            print(f"Directory '{log_folder}' created successfully.")
+        except Exception as e:
+            print(f"Error creating directory '{log_folder}': {e}")
         executor = submitit.AutoExecutor(folder=log_folder)
-        num_processes = 10
+        num_processes = 8
         # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
         # By default, this is several hundreds (no HPC default!)
         executor.update_parameters(slurm_array_parallelism=16,
@@ -192,6 +195,7 @@ def find_optimal_kappas(local_run, user):
         print(f'Before running results')
         job_ids = [job.job_id for job in jobs]
         results = [job.result() for job in jobs]
+
         print('Collecting results ...')
         # Collect and combine results across chunks of concentrations
         report_min_executor = submitit.AutoExecutor(folder=log_folder)
