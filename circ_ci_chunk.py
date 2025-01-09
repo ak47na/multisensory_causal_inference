@@ -139,7 +139,7 @@ def find_optimal_kappas(local_run, user):
     if local_run:
         chunk_size = 500
     else:
-        chunk_size = 1000
+        chunk_size = 2000
 
     total_kappa_combinations = len(kappa1_flat)
     kappa_indices = np.arange(total_kappa_combinations)
