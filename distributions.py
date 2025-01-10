@@ -36,7 +36,7 @@ def get_interp(mean_file_path='./learned_data/R_mean_250_250.npy',
 class UVM(Distribution):
     def __init__(self, loc, scale, kappa, interp=None, num_sim=1000, 
                  #unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl') 
-                unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free.pkl')-> None:
+                unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl')-> None:
         super().__init__(loc, scale, kappa, interp)
         #assert (np.asarray(loc).shape == np.asarray(kappa).shape)
         self.num_sim = num_sim
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     num_sim = 1000
     uvm = UVM(loc=mus_matrix, scale=None, kappa=kappas_matrix, interp=interp, num_sim=num_sim, 
               #unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl')
-              unif_fn_data_path = '/nfs/ghome/live/kdusterwald/Documents/causal_inf/uniform_model_base_inv_kappa_free.pkl')
+              unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl')
     uvm.learn_mean_and_mode(mean_file_path=f'./learned_data/R_mean_{len(mus)}_{len(kappas)}.npy',
                             mode_file_path=f'./learned_data/R_mode_{len(mus)}_{len(kappas)}.npy')
     uvm.plot_decision_rules(decision_rules=['mean', 'mode'])
