@@ -10,6 +10,7 @@ from custom_causal_inference import CustomCausalInference
 import forward_models_causal_inference
 import submitit
 import shutil
+from submitit.helpers import as_completed
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -201,7 +202,21 @@ def find_optimal_kappas(local_run, user):
         jobs = executor.map_array(process_mean_pair, tasks)  
         print(f'Before running results')
         job_ids = [job.job_id for job in jobs]
-        results = [job.result() for job in jobs]
+        job_id_to_task_id = {job.job_id: task_idx for task_idx, job in enumerate(jobs)}
+        results = []
+        for job in as_completed(jobs):
+            try:
+                result = job.result()  # Blocks until this specific job finishes
+                print(f"Job {job.job_id} completed: {len(result)}")
+                results[job_id_to_task_id[job.job_id]].append(result)
+
+                # Delete the job’s log folder
+                # By default, each job has a subfolder <base_folder>/<job_id> 
+                job_folder = job.paths.folder
+                shutil.rmtree(job_folder)
+                print(f"Deleted log folder for job {job.job_id}: {job_folder}")
+            except Exception as e:
+                print(f"Job {job.job_id} failed: {e}")
 
         print('Combining results ...')
         # Collect and combine results across chunks of concentrations
