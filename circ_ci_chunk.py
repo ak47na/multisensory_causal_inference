@@ -185,6 +185,10 @@ def find_optimal_kappas(local_run, user):
     else:
         log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
         print(f'Running on the cluser, {len(tasks)} tasks')
+        total, used, free = shutil.disk_usage(log_folder[:-2])
+        print(f"Initial total space: {total // (2**30)} GiB")
+        print(f"Initial used space: {used // (2**30)} GiB")
+        print(f"Initial free space: {free // (2**30)} GiB")
         # Create tmp directory for logging (logs will be deleted after the job terminates)
         try:
             os.makedirs(log_folder, exist_ok=False) # the directory should be delected after jobs terminate
@@ -215,6 +219,12 @@ def find_optimal_kappas(local_run, user):
                 job_folder = job.paths.folder
                 shutil.rmtree(job_folder)
                 print(f"Deleted log folder for job {job.job_id}: {job_folder}")
+                
+                total, used, free = shutil.disk_usage(log_folder[:-2])
+
+                print(f"Total space: {total // (2**30)} GiB")
+                print(f"Used space: {used // (2**30)} GiB")
+                print(f"Free space: {free // (2**30)} GiB")
             except Exception as e:
                 print(f"Job {job.job_id} failed: {e}")
 
