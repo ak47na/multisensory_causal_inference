@@ -11,6 +11,7 @@ import forward_models_causal_inference
 import submitit
 import shutil
 from submitit.helpers import as_completed
+from collections import defaultdict
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -185,10 +186,6 @@ def find_optimal_kappas(local_run, user):
     else:
         log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
         print(f'Running on the cluser, {len(tasks)} tasks')
-        total, used, free = shutil.disk_usage(log_folder[:-2])
-        print(f"Initial total space: {total // (2**30)} GiB")
-        print(f"Initial used space: {used // (2**30)} GiB")
-        print(f"Initial free space: {free // (2**30)} GiB")
         # Create tmp directory for logging (logs will be deleted after the job terminates)
         try:
             os.makedirs(log_folder, exist_ok=False) # the directory should be delected after jobs terminate
@@ -207,7 +204,7 @@ def find_optimal_kappas(local_run, user):
         print(f'Before running results')
         job_ids = [job.job_id for job in jobs]
         job_id_to_task_id = {job.job_id: task_idx for task_idx, job in enumerate(jobs)}
-        results = []
+        results = [[] for _ in range(len(tasks))]
         for job in as_completed(jobs):
             try:
                 result = job.result()  # Blocks until this specific job finishes
@@ -219,14 +216,13 @@ def find_optimal_kappas(local_run, user):
                 job_folder = job.paths.folder
                 shutil.rmtree(job_folder)
                 print(f"Deleted log folder for job {job.job_id}: {job_folder}")
-                
-                total, used, free = shutil.disk_usage(log_folder[:-2])
-
-                print(f"Total space: {total // (2**30)} GiB")
-                print(f"Used space: {used // (2**30)} GiB")
-                print(f"Free space: {free // (2**30)} GiB")
             except Exception as e:
                 print(f"Job {job.job_id} failed: {e}")
+                try:
+                    shutil.rmtree(job_folder)
+                    print(f"Deleted log folder for job {job.job_id}: {job_folder}")
+                except Exception as e:
+                    print(f"Error deleting log folder for job {job.job_id}: {job_folder}: {e}")
 
         print('Combining results ...')
         # Collect and combine results across chunks of concentrations
