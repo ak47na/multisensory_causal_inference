@@ -318,7 +318,6 @@ if __name__ == '__main__':
     p_commons = np.linspace(0, 1, num=20)
 
     args = parser.parse_args()
-    num_kappas = args.num_kappas
     num_sim = args.num_sim
     t_index = args.t_index
     user = args.user
