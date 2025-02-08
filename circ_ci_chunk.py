@@ -306,16 +306,20 @@ def report_min_error(results, p_commons, num_data_points):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
+    parser.add_argument('--num_kappa1s', type=int, default=100, help="Number of kappa values to be used for fitting kappa1")
+    parser.add_argument('--num_kappa2s', type=int, default=100, help="Number of kappa values to be used for fitting kappa2")
+    parser.add_argument('--num_sim', type=int, default=1000, help="Number of simulations to be run for each kappa pair")
     parser.add_argument('--t_index', type=int, default=2, help="Index of the regressor t used for regressed r_n(s_n, t)")
     parser.add_argument('--user', type=str, default='', help="Username for running user, used for selecting the log folder")
     parser.add_argument('--local_run', type=bool, default=False, help='True if the script runs locally using multiprocessing')
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False, help='True if grid pairs are selected based on cue combination errors')
     parser.add_argument('--use_unif_internal_space', type=int, default=0, help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
-    num_sim = 1000
     D = 250  # grid dimension
     p_commons = np.linspace(0, 1, num=20)
 
     args = parser.parse_args()
+    num_kappas = args.num_kappas
+    num_sim = args.num_sim
     t_index = args.t_index
     user = args.user
     local_run = args.local_run
@@ -396,8 +400,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, args.num_kappa1s
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, args.num_kappa2s
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
