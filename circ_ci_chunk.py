@@ -298,9 +298,9 @@ def report_min_error(results, p_commons, num_data_points):
     for mean_indices, p_common, optimal_kappa_pair, min_error in results:
         idx = mean_indices[0]  # mean_indices is an array of one element *for now*
         key = (idx, p_common)
-        if (key not in optimal_kappa_pairs) or (min_error < min_error_for_idx_pc[key]):
+        if (key not in optimal_kappa_pairs) or (min_error[0] < min_error_for_idx_pc[key]):
             optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-            min_error_for_idx_pc[key] = min_error
+            min_error_for_idx_pc[key] = min_error[0] # min_error is an array of same shape as idx
     return optimal_kappa_pairs, min_error_for_idx_pc
 
 
@@ -396,8 +396,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
