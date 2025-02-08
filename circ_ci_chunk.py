@@ -11,7 +11,184 @@ import forward_models_causal_inference
 import submitit
 import shutil
 from submitit.helpers import as_completed
-from collections import defaultdict
+
+
+class KappaFitter:
+    """
+    A class to handle kappa fitting either locally using multiprocessing
+    or on a SLURM cluster using Submitit.
+    """
+
+    def __init__(self,
+                 ut,
+                 us_n,
+                 r_n,
+                 kappa1_flat,
+                 kappa2_flat,
+                 p_commons,
+                 num_sim,
+                 angle_gam_data_path,
+                 unif_fn_data_path,
+                 local_run,
+                 user):
+        self.ut = ut
+        self.us_n = us_n
+        self.r_n = r_n
+        self.kappa1_flat = kappa1_flat
+        self.kappa2_flat = kappa2_flat
+        self.p_commons = p_commons
+        self.num_sim = num_sim
+        self.angle_gam_data_path = angle_gam_data_path
+        self.unif_fn_data_path = unif_fn_data_path
+        self.local_run = local_run
+        self.user = user
+
+    def find_optimal_kappas(self):
+        """
+        Finds the optimal kappa values that minimize the error between model predictions and GAM data
+        by processing chunks of kappa combinations in parallel using multiprocessing.
+
+        This function prepares tasks for different combinations of mean indices, probabilities of a common cause (p_common),
+        and chunks of kappa values. It then uses a multiprocessing pool to process these tasks concurrently.
+        After processing, it collects and combines the results to find the kappa pairs that achieve the minimum error
+        for each mean index and p_common value.
+
+        Returns:
+            tuple: A tuple containing:
+                - optimal_kappa_pairs (dict): A dictionary mapping (mean index, p_common) tuples to optimal kappa pairs (kappa1, kappa2).
+                - min_error_for_idx_pc (dict): A dictionary mapping (mean index, p_common) tuples to the minimum error achieved.
+        """
+        tasks = []
+        print(f'Fitting for num_means={self.ut.shape}, data_shape={self.r_n.shape}')
+        print(f'User={self.user}')
+        # Adjust based on memory availability
+        if self.local_run:
+            chunk_size = 500
+        else:
+            chunk_size = 50000
+
+        total_kappa_combinations = len(self.kappa1_flat)
+        kappa_indices = np.arange(total_kappa_combinations)
+
+        num_chunks = (total_kappa_combinations + chunk_size - 1) // chunk_size
+        task_idx = 0
+        task_metadata = {}
+        for i, data_slice in enumerate(self.r_n):
+            for p_common in self.p_commons:
+                for chunk_idx in range(num_chunks):
+                    start_idx = chunk_idx * chunk_size
+                    end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
+                    kappa_indices_chunk = kappa_indices[start_idx:end_idx]
+                    tasks.append((task_idx,
+                                  np.array([i]),
+                                  self.ut,
+                                  self.us_n,
+                                  self.kappa1_flat,
+                                  self.kappa2_flat,
+                                  self.num_sim,
+                                  data_slice,
+                                  p_common,
+                                  kappa_indices_chunk))
+                    task_metadata[task_idx] = {
+                        'mean_indices': np.array([i]),
+                        'p_common': p_common,
+                        'kappa_indices': (start_idx, end_idx)
+                    }
+                    task_idx += 1
+
+        with open('./learned_data/task_metadata.pkl', 'wb') as f:
+            pickle.dump(task_metadata, f)
+
+        if self.local_run:
+            initargs = (self.angle_gam_data_path, self.unif_fn_data_path)
+            print("Before creating multiprocessing pool")
+            num_processes = os.cpu_count()
+            with mp.Pool(processes=num_processes,
+                         initializer=init_worker,
+                         initargs=initargs) as pool:
+                results = []
+                print(f"Multiprocessing pool created for {len(tasks)} tasks")
+                for result in pool.imap_unordered(process_mean_pair, tasks):
+                    results.append(result)
+                    print(f'Num results: {len(results)}, completed={100*len(results)/len(tasks):.2f}%')
+            print("After multiprocessing pool!")
+            # Collect and combine results across chunks of concentrations
+            optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results,
+                                                                        self.p_commons,
+                                                                        self.r_n.shape[0])
+            return optimal_kappa_pairs, min_error_for_idx_pc
+        else:
+            log_folder = f'/ceph/scratch/{self.user}/slurm/logs/%j'
+            print(f'Running on the cluser, {len(tasks)} tasks')
+            # Create tmp directory for logging (logs will be deleted after the job terminates)
+            try:
+                os.makedirs(log_folder, exist_ok=False)
+                print(f"Directory '{log_folder}' created successfully.")
+            except Exception as e:
+                print(f"Error creating directory '{log_folder}': {e}")
+                exit(1)
+
+            executor = submitit.AutoExecutor(folder=log_folder)
+            num_processes = 8
+            # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once.
+            # By default, this is several hundreds (no HPC default!)
+            executor.update_parameters(slurm_array_parallelism=16,
+                                       slurm_partition='cpu',
+                                       timeout_min=1000,
+                                       mem_gb=32,
+                                       cpus_per_task=num_processes)
+            jobs = executor.map_array(process_mean_pair, tasks)
+            print('Before running results')
+            job_ids = [job.job_id for job in jobs]
+            job_id_to_task_id = {job.job_id: idx for idx, job in enumerate(jobs)}
+            results = [[] for _ in range(len(tasks))]
+            for job in as_completed(jobs):
+                try:
+                    result = job.result()  # Blocks until this specific job finishes
+                    print(f"Job {job.job_id} completed: {len(result)}")
+                    results[job_id_to_task_id[job.job_id]].append(result)
+
+                    # Delete the job’s log folder
+                    # By default, each job has a subfolder <base_folder>/<job_id>
+                    job_folder = job.paths.folder
+                    shutil.rmtree(job_folder)
+                    print(f"Deleted log folder for job {job.job_id}: {job_folder}")
+                except Exception as e:
+                    print(f"Job {job.job_id} failed: {e}")
+                    try:
+                        job_folder = job.paths.folder
+                        shutil.rmtree(job_folder)
+                        print(f"Deleted log folder for job {job.job_id}: {job_folder}")
+                    except Exception as e2:
+                        print(f"Error deleting log folder for job {job.job_id}: {job_folder}: {e2}")
+
+            print('Combining results ...')
+            # Collect and combine results across chunks of concentrations
+            report_min_executor = submitit.AutoExecutor(folder=log_folder)
+            report_min_executor.update_parameters(
+                slurm_partition='cpu',
+                timeout_min=1000,
+                mem_gb=32,
+                cpus_per_task=num_processes,
+                # Set up Slurm dependency so that this job starts
+                # only after ALL listed job IDs complete successfully
+                slurm_additional_parameters={
+                    "dependency": "afterok:" + ":".join(job_ids)
+                }
+            )
+            print('Before running min job')
+            min_job = report_min_executor.submit(report_min_error,
+                                                 results,
+                                                 self.p_commons,
+                                                 self.r_n.shape[0])
+            optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
+            # Delete the log folder
+            try:
+                shutil.rmtree(log_folder)
+                print(f"Log directory '{log_folder}' has been deleted.")
+            except Exception as e:
+                print(f"Error deleting log directory '{log_folder}': {e}")
+            return optimal_kappa_pairs, min_error_for_idx_pc
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
@@ -126,127 +303,6 @@ def report_min_error(results, p_commons, num_data_points):
             min_error_for_idx_pc[key] = min_error
     return optimal_kappa_pairs, min_error_for_idx_pc
 
-def find_optimal_kappas(local_run, user):
-    """
-    Finds the optimal kappa values that minimize the error between model predictions and GAM data
-    by processing chunks of kappa combinations in parallel using multiprocessing.
-
-    This function prepares tasks for different combinations of mean indices, probabilities of a common cause (p_common),
-    and chunks of kappa values. It then uses a multiprocessing pool to process these tasks concurrently.
-    After processing, it collects and combines the results to find the kappa pairs that achieve the minimum error
-    for each mean index and p_common value.
-
-    Returns:
-        tuple: A tuple containing:
-            - optimal_kappa_pairs (dict): A dictionary mapping (mean index, p_common) tuples to optimal kappa pairs (kappa1, kappa2).
-            - min_error_for_idx_pc (dict): A dictionary mapping (mean index, p_common) tuples to the minimum error achieved.
-    """
-    tasks = []
-    print(f'Fitting for num_means={ut.shape}, data_shape={r_n.shape}')
-    print(f'User={user}')
-    # Adjust based on memory availability
-    if local_run:
-        chunk_size = 500
-    else:
-        chunk_size = 5000
-
-    total_kappa_combinations = len(kappa1_flat)
-    kappa_indices = np.arange(total_kappa_combinations)
-
-    num_chunks = (total_kappa_combinations + chunk_size - 1) // chunk_size
-    task_idx = 0
-    task_metadata = {}
-    for i, data_slice in enumerate(r_n):
-        for p_common in p_commons:
-            for chunk_idx in range(num_chunks):
-                start_idx = chunk_idx * chunk_size
-                end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
-                kappa_indices_chunk = kappa_indices[start_idx:end_idx]
-                tasks.append((task_idx, np.array([i]), ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices_chunk))
-                task_metadata[task_idx] = {'mean_indices': np.array([i]),
-                                           'p_common': p_common,
-                                           'kappa_indices': (start_idx, end_idx)}
-                task_idx += 1
-    with open('./learned_data/task_metadata.pkl', 'wb') as f:
-        pickle.dump(task_metadata, f)
-    if local_run:
-        initargs = (angle_gam_data_path, unif_fn_data_path)
-        print("Before creating multiprocessing pool")
-        num_processes = os.cpu_count()
-        with mp.Pool(processes=num_processes, initializer=init_worker, initargs=initargs) as pool:
-            results = []
-            print("Multiprocessing pool created")
-            for result in pool.imap_unordered(process_mean_pair, tasks):
-                results.append(result)
-                print(f'Num results: {len(results)}, completed={100*len(results)/len(tasks)}%')
-        print("After multiprocessing pool!")
-        # Collect and combine results across chunks of concentrations
-        optimal_kappa_pairs, min_error_for_idx_pc = report_min_error(results, p_commons, r_n.shape[0])
-        return optimal_kappa_pairs, min_error_for_idx_pc
-    else:
-        log_folder = f'/ceph/scratch/{user}/slurm/logs/%j'
-        print(f'Running on the cluser, {len(tasks)} tasks')
-        # Create tmp directory for logging (logs will be deleted after the job terminates)
-        try:
-            os.makedirs(log_folder, exist_ok=False) # the directory should be delected after jobs terminate
-            print(f"Directory '{log_folder}' created successfully.")
-        except Exception as e:
-            print(f"Error creating directory '{log_folder}': {e}")
-        executor = submitit.AutoExecutor(folder=log_folder)
-        num_processes = 8
-        # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once. 
-        # By default, this is several hundreds (no HPC default!)
-        executor.update_parameters(slurm_array_parallelism=16,
-                                slurm_partition='cpu', 
-                                timeout_min=1000, 
-                                mem_gb=32, cpus_per_task=num_processes)
-        jobs = executor.map_array(process_mean_pair, tasks)  
-        print(f'Before running results')
-        job_ids = [job.job_id for job in jobs]
-        job_id_to_task_id = {job.job_id: task_idx for task_idx, job in enumerate(jobs)}
-        results = [[] for _ in range(len(tasks))]
-        for job in as_completed(jobs):
-            try:
-                result = job.result()  # Blocks until this specific job finishes
-                print(f"Job {job.job_id} completed: {len(result)}")
-                results[job_id_to_task_id[job.job_id]].append(result)
-
-                # Delete the job’s log folder
-                # By default, each job has a subfolder <base_folder>/<job_id> 
-                job_folder = job.paths.folder
-                shutil.rmtree(job_folder)
-                print(f"Deleted log folder for job {job.job_id}: {job_folder}")
-            except Exception as e:
-                print(f"Job {job.job_id} failed: {e}")
-                try:
-                    shutil.rmtree(job_folder)
-                    print(f"Deleted log folder for job {job.job_id}: {job_folder}")
-                except Exception as e:
-                    print(f"Error deleting log folder for job {job.job_id}: {job_folder}: {e}")
-
-        print('Combining results ...')
-        # Collect and combine results across chunks of concentrations
-        report_min_executor = submitit.AutoExecutor(folder=log_folder)
-        report_min_executor.update_parameters(
-            slurm_partition='cpu',
-            timeout_min=1000,
-            mem_gb=32, cpus_per_task=num_processes,
-            # Set up Slurm dependency so that this job starts
-            # only after ALL listed job IDs complete successfully
-            slurm_additional_parameters={
-                "dependency": "afterok:" + ":".join(job_ids)
-            }
-        )
-        print('Before running min job')
-        min_job = report_min_executor.submit(report_min_error, results, p_commons, r_n.shape[0])
-        optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
-        # Delete the log folder
-        try:
-            shutil.rmtree(log_folder)
-            print(f"Log directory '{log_folder}' has been deleted.")
-        except Exception as e:
-            print(f"Error deleting log directory '{log_folder}': {e}")
-        return optimal_kappa_pairs, min_error_for_idx_pc
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
@@ -340,8 +396,8 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 100
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 100
+    min_kappa1, max_kappa1, num_kappa1s = 1, 200, 10
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, 10
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
@@ -356,7 +412,20 @@ if __name__ == '__main__':
         plt.legend()
         plt.show()
 
-    optimal_kappa_pairs, min_error_for_idx_pc = find_optimal_kappas(local_run, user)
+    # Instantiate KappaFitter and run the pipeline
+    fitter = KappaFitter(ut=ut,
+                         us_n=us_n,
+                         r_n=r_n,
+                         kappa1_flat=kappa1_flat,
+                         kappa2_flat=kappa2_flat,
+                         p_commons=p_commons,
+                         num_sim=num_sim,
+                         angle_gam_data_path=angle_gam_data_path,
+                         unif_fn_data_path=unif_fn_data_path,
+                         local_run=local_run,
+                         user=user)
+
+    optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
     min_error_for_idx = {}
     for key in min_error_for_idx_pc:
