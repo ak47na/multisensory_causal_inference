@@ -65,7 +65,7 @@ class KappaFitter:
         if self.local_run:
             chunk_size = 500
         else:
-            chunk_size = 50000
+            chunk_size = 10000
 
         total_kappa_combinations = len(self.kappa1_flat)
         kappa_indices = np.arange(total_kappa_combinations)
@@ -140,13 +140,12 @@ class KappaFitter:
             jobs = executor.map_array(process_mean_pair, tasks)
             print('Before running results')
             job_ids = [job.job_id for job in jobs]
-            job_id_to_task_id = {job.job_id: idx for idx, job in enumerate(jobs)}
-            results = [[] for _ in range(len(tasks))]
+            results = []
             for job in as_completed(jobs):
                 try:
                     result = job.result()  # Blocks until this specific job finishes
                     print(f"Job {job.job_id} completed: {len(result)}")
-                    results[job_id_to_task_id[job.job_id]].append(result)
+                    results.append(result)
 
                     # Delete the job’s log folder
                     # By default, each job has a subfolder <base_folder>/<job_id>
@@ -277,7 +276,9 @@ def process_mean_pair(args):
             # Select only the first max_to_save indices (sorting ensures we select the best values)
             mean_min_indices = mean_min_indices[:max_to_save]
             kappas_min_indices = kappas_min_indices[:max_to_save]
-        
+        # Save the lowest errors and associated concentraions/kappa pairs
+        # Grid indices of mean stimuli values (and p_common) are identified using the task_idx data
+        # in task_metadata
         errors_dict = {'errors': errors[mean_min_indices, kappas_min_indices],
                        'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
                        'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
