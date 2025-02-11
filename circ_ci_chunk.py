@@ -132,6 +132,7 @@ class KappaFitter:
                 exit(1)
 
             executor = submitit.AutoExecutor(folder=log_folder)
+            max_logs_size = 0
             num_processes = 8
             # slurm_array_parallelism tells the scheduler to only run at most 16 jobs at once.
             # By default, this is several hundreds (no HPC default!)
@@ -149,6 +150,8 @@ class KappaFitter:
                     result = job.result()  # Blocks until this specific job finishes
                     logger.debug(f"Job {job.job_id} completed: {len(results) + 1}/{len(jobs)}")
                     results.append(result)
+                    if len(results) % 10 == 0:
+                        max_logs_size = max(get_folder_size(log_folder[:-3]), max_logs_size)
 
                     # Delete the job’s log folder
                     job_folder = job.paths.folder
@@ -183,6 +186,7 @@ class KappaFitter:
                                                  self.p_commons,
                                                  self.r_n.shape[0])
             optimal_kappa_pairs, min_error_for_idx_pc = min_job.result()
+            logger.debug(f"Max log directory size: {max_logs_size} bytes")
             # Delete the log folder
             try:
                 shutil.rmtree(log_folder[:-3])  # Remove the '/%j' suffix
@@ -194,6 +198,36 @@ class KappaFitter:
 
 def compute_error(computed_values, data_slice):
     return utils.circular_dist(computed_values, data_slice)
+
+
+def get_folder_size(folder_path):
+    """
+    Returns the total size (in bytes) of all regular files within folder_path
+    using os.scandir. It does not follow symbolic links by default.
+    """
+    total_size = 0
+    dirs_to_visit = [folder_path]
+
+    while dirs_to_visit:
+        current_dir = dirs_to_visit.pop()
+        try:
+            with os.scandir(current_dir) as it:
+                for entry in it:
+                    # If entry is a directory, add to stack
+                    if entry.is_dir(follow_symlinks=False):
+                        dirs_to_visit.append(entry.path)
+                    # If entry is a file, accumulate its size
+                    elif entry.is_file(follow_symlinks=False):
+                        total_size += entry.stat().st_size
+        except PermissionError:
+            # In case we hit a directory we don't have access to
+            print(f"Permission denied: {current_dir}")
+            continue
+        except FileNotFoundError:
+            # In case a file/directory is removed while scanning
+            print(f"File not found: {current_dir}")
+            continue
+    return total_size
 
 def init_worker(angle_gam_data_path, unif_fn_data_path):
     global causal_inference_estimator
@@ -280,7 +314,7 @@ def report_min_error(results, p_commons, num_data_points):
     optimal_kappa_pairs = {}
     min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(num_data_points) for pc in p_commons}
 
-    # Find the minimum error across kappa chunks
+    # Find the minimum error for all pairs of mean stimuli values across kappa chunks
     for mean_indices, p_common, optimal_kappa_pair, min_error in results:
         idx = mean_indices[0] # mean_indices is an array of one element *for now*
         key = (idx, p_common)
