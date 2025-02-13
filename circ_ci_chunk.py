@@ -74,6 +74,7 @@ class KappaFitter:
         kappa_indices = np.arange(total_kappa_combinations)
 
         num_chunks = (total_kappa_combinations + chunk_size - 1) // chunk_size
+        grid_sz = self.r_n.shape[0]
         task_idx = 0
         task_metadata = {}
         for i, data_slice in enumerate(self.r_n):
@@ -99,7 +100,7 @@ class KappaFitter:
                     }
                     task_idx += 1
 
-        with open('./learned_data/task_metadata.pkl', 'wb') as f:
+        with open(f'./learned_data/task_metadata_{grid_sz}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
@@ -251,6 +252,7 @@ def process_mean_pair(args):
 
     mu1 = ut[mean_indices]
     mu2 = us_n[mean_indices]
+    grid_sz = ut.shape[0]
     np.random.seed(os.getpid())
 
     # Select the chunk of kappa combinations
@@ -302,7 +304,7 @@ def process_mean_pair(args):
                        'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
                        'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
         
-        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}.pkl', 'wb') as f:
+        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
         del errors_dict
         # Call gc.collect() if experiencing memory issues
@@ -479,14 +481,15 @@ if __name__ == '__main__':
     if local_run:
         plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
         plt.show()
-    with open('./learned_data/optimal_kappa_pairs_4.pkl', 'wb') as f:
+    grid_sz = s_n.shape[0]
+    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open('./learned_data/min_error_for_idx_pc_4.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open('./learned_data/min_error_for_idx_4.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_{grid_sz}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
-    np.save('./learned_data/selected_s_n.npy', arr=s_n)
-    np.save('./learned_data/selected_t.npy', arr=t)
-    np.save('./learned_data/selected_r_n.npy', arr=r_n)
+    np.save(f'./learned_data/selected_s_n_{grid_sz}.npy', arr=s_n)
+    np.save(f'./learned_data/selected_t_{grid_sz}.npy', arr=t)
+    np.save(f'./learned_data/selected_r_n_{grid_sz}.npy', arr=r_n)
     print(f'Max error = {max(min_error_for_idx.values())}, '
                  f'avg error: {np.mean(list(min_error_for_idx.values()))}')
