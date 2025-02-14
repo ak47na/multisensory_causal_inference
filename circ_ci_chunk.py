@@ -65,7 +65,7 @@ class KappaFitter:
         print(f'User={self.user}')
         # Adjust based on memory availability
         if self.local_run:
-            chunk_size = 500
+            chunk_size = 50
         else:
             chunk_size = 10000
 
@@ -216,6 +216,7 @@ class KappaFitter:
             kappa1=kappa1_chunk,
             kappa2=kappa2_chunk)
         errors_dict = {}
+        optimal_kappas, min_errors = [], []
         for p_common in self.p_commons:
             errors_dict[p_common] = {}
             # Find the (circular) mean of (causal inference) optimal responses across all (t, s_n) samples
@@ -230,10 +231,11 @@ class KappaFitter:
             assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
             del mean_sn_est
 
-            idx_min = np.argmin(errors, axis=1)
-            optimal_kappa1 = kappa1_chunk[idx_min]
-            optimal_kappa2 = kappa2_chunk[idx_min]
-            min_error = np.min(errors, axis=1)
+            idx_min = np.argmin(errors, axis=1) # shape [len(mean_indices),]
+            min_error = np.min(errors, axis=1) # shape [len(mean_indices),]
+            optimal_kappas.append((kappa1_chunk[idx_min], kappa2_chunk[idx_min]))
+            min_errors.append(min_error)
+
             if max_to_save > 0:
                 mean_min_indices,  kappas_min_indices = np.where(errors < error_threshold)
                 if (len(mean_min_indices) > max_to_save) or (len(mean_min_indices) < 2):
@@ -259,7 +261,7 @@ class KappaFitter:
         del t_samples, s_n_samples
         # Call gc.collect() if experiencing memory issues
 
-        return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
+        return (mean_indices, optimal_kappas, min_errors)
 
 
 def compute_error(computed_values, data_slice):
@@ -309,15 +311,16 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
 
 def report_min_error(results, p_commons, num_data_points):
     optimal_kappa_pairs = {}
-    min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(num_data_points) for pc in p_commons}
+    min_error_for_idx_pc = {(idx, pc): 2*np.pi for idx in range(num_data_points) for pc in p_commons}
 
     # Find the minimum error for all pairs of mean stimuli values across kappa chunks
-    for mean_indices, p_common, optimal_kappa_pair, min_error in results:
+    for mean_indices, optimal_kappa_pair, min_errors in results:
         idx = mean_indices[0] # mean_indices is an array of one element *for now*
-        key = (idx, p_common)
-        if (key not in optimal_kappa_pairs) or (min_error[0] < min_error_for_idx_pc[key]):
-            optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-            min_error_for_idx_pc[key] = min_error[0] # min_error has the same shape as mean_indices
+        for p_common, optimal_kappa_pair_pc, min_error in zip(p_commons, optimal_kappa_pair, min_errors):
+            key = (idx, p_common)
+            if (key not in optimal_kappa_pairs) or (min_error[0] < min_error_for_idx_pc[key]):
+                optimal_kappa_pairs[key] = (optimal_kappa_pair_pc[0], optimal_kappa_pair_pc[1])
+                min_error_for_idx_pc[key] = min_error[0] # min_error has the same shape as mean_indices
     return optimal_kappa_pairs, min_error_for_idx_pc
 
 
