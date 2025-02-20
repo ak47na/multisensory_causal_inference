@@ -62,7 +62,7 @@ class KappaFitter:
                 - min_error_for_idx_pc (dict): A dictionary mapping (mean index, p_common) tuples to the minimum error achieved.
         """
         tasks = []
-        print(f'Fitting for num_means={self.ut.shape}, data_shape={self.r_n.shape}')
+        print(f'Fitting for num_means={self.ut.shape}, data_shape={self.r_n.shape}, n_kappa_pairs={len(self.kappa1_flat)}')
         print(f'User={self.user}')
         # Adjust based on memory availability
         if self.local_run:
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_unif_internal_space', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     D = 250
-    p_commons = np.linspace(0, 1, num=20)
+    p_commons = np.linspace(0, 1, num=40)
 
     args = parser.parse_args()
 
