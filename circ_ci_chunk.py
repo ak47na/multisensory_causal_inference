@@ -11,7 +11,6 @@ from custom_causal_inference import CustomCausalInference
 import forward_models_causal_inference
 import submitit
 import shutil
-import sys
 from submitit.helpers import as_completed
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ class KappaFitter:
         print(f'User={self.user}')
         # Adjust based on memory availability
         if self.local_run:
-            chunk_size = 500
+            chunk_size = 50
         else:
             chunk_size = 10000
 
@@ -78,24 +77,16 @@ class KappaFitter:
         task_idx = 0
         task_metadata = {}
         for i, data_slice in enumerate(self.r_n):
-            for p_common in self.p_commons:
                 for chunk_idx in range(num_chunks):
                     start_idx = chunk_idx * chunk_size
                     end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
                     kappa_indices_chunk = kappa_indices[start_idx:end_idx]
                     tasks.append((task_idx,
                                   np.array([i]),
-                                  self.ut,
-                                  self.us_n,
-                                  self.kappa1_flat,
-                                  self.kappa2_flat,
-                                  self.num_sim,
                                   data_slice,
-                                  p_common,
                                   kappa_indices_chunk))
                     task_metadata[task_idx] = {
                         'mean_indices': np.array([i]),
-                        'p_common': p_common,
                         'kappa_indices': (start_idx, end_idx)
                     }
                     task_idx += 1
@@ -112,7 +103,7 @@ class KappaFitter:
                          initargs=initargs) as pool:
                 results = []
                 logger.debug(f"Multiprocessing pool created for {len(tasks)} tasks")
-                for result in pool.imap_unordered(process_mean_pair, tasks):
+                for result in pool.imap_unordered(self.process_mean_pair, tasks):
                     results.append(result)
                     logger.debug(f'Num results: {len(results)}, '
                                  f'completed={100*len(results)/len(tasks):.2f}%')
@@ -142,7 +133,7 @@ class KappaFitter:
                                        timeout_min=1000,
                                        mem_gb=32,
                                        cpus_per_task=num_processes)
-            jobs = executor.map_array(process_mean_pair, tasks)
+            jobs = executor.map_array(self.process_mean_pair, tasks)
             logger.debug('Before running results')
             job_ids = [job.job_id for job in jobs]
             results = []
@@ -195,6 +186,82 @@ class KappaFitter:
             except Exception as e:
                 logger.debug(f"Error deleting log directory '{log_folder}': {e}")
             return optimal_kappa_pairs, min_error_for_idx_pc
+        
+    def process_mean_pair(self, args):
+        """
+        Processes pairs of means and finds the optimal kappa values that minimize the error
+        between model predictions and GAM data for a chunk of kappa combinations.
+        ...
+        """
+        task_idx, mean_indices, data_slice, kappa_indices = args
+        ut, us_n, kappa1_flat, kappa2_flat, num_sim = self.ut, self.us_n, self.kappa1_flat, self.kappa2_flat, self.num_sim
+        max_to_save=50
+        error_threshold=0.0349066
+
+        mu1 = ut[mean_indices]
+        mu2 = us_n[mean_indices]
+        grid_sz = ut.shape[0]
+        np.random.seed(os.getpid())
+
+        # Select the chunk of kappa combinations
+        kappa1_chunk = kappa1_flat[kappa_indices]
+        kappa2_chunk = kappa2_flat[kappa_indices]
+
+        # Generate samples for running causal inference with concentrations from the kappa chunk
+        # t_samples, s_n_samples shape: [len(mean_indices), len(kappa1_flat), num_sim]
+        t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(
+            num_sim=num_sim,
+            mu_t=mu1,
+            mu_s_n=mu2,
+            kappa1=kappa1_chunk,
+            kappa2=kappa2_chunk)
+        errors_dict = {}
+        optimal_kappas, min_errors = [], []
+        for p_common in self.p_commons:
+            errors_dict[p_common] = {}
+            # Find the (circular) mean of (causal inference) optimal responses across all (t, s_n) samples
+            _, _, _, mean_sn_est = causal_inference_estimator.forward(
+                t_samples=t_samples,
+                s_n_samples=s_n_samples,
+                p_common=p_common,
+                kappa1=kappa1_chunk,
+                kappa2=kappa2_chunk)
+
+            errors = compute_error(mean_sn_est, data_slice) # shape is [len(mean_indices), len(kappa1_flat)]
+            assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
+            del mean_sn_est
+
+            idx_min = np.argmin(errors, axis=1) # shape [len(mean_indices),]
+            min_error = np.min(errors, axis=1) # shape [len(mean_indices),]
+            optimal_kappas.append((kappa1_chunk[idx_min], kappa2_chunk[idx_min]))
+            min_errors.append(min_error)
+
+            if max_to_save > 0:
+                mean_min_indices,  kappas_min_indices = np.where(errors < error_threshold)
+                if (len(mean_min_indices) > max_to_save) or (len(mean_min_indices) < 2):
+                    # Edge cases: too many or too few "good kappas" with small error values to be saved.
+                    sorted_indices = np.argsort(errors, axis=None)
+                    # Indices in sorted_indices corresponed to a flattened errors array
+                    # Convert 1D indices of flattened errors back to 2D (row, column) indices
+                    mean_min_indices,  kappas_min_indices = np.unravel_index(sorted_indices, errors.shape)
+                    # Select only the first max_to_save indices (sorting ensures we select the best values)
+                    mean_min_indices = mean_min_indices[:max_to_save]
+                    kappas_min_indices = kappas_min_indices[:max_to_save]
+                
+                # Save the lowest errors and associated concentraions/kappa pairs
+                # Grid indices of mean stimuli values (and p_common) are identified using the task_idx data
+                # in task_metadata
+                errors_dict[p_common] = {'errors': errors[mean_min_indices, kappas_min_indices],
+                            'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
+                            'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
+                
+        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}.pkl', 'wb') as f:
+            pickle.dump(errors_dict, f)
+        del errors_dict
+        del t_samples, s_n_samples
+        # Call gc.collect() if experiencing memory issues
+
+        return (mean_indices, optimal_kappas, min_errors)
 
 
 def compute_error(computed_values, data_slice):
@@ -230,6 +297,7 @@ def get_folder_size(folder_path):
             continue
     return total_size
 
+
 def init_worker(angle_gam_data_path, unif_fn_data_path):
     global causal_inference_estimator
     global unif_map
@@ -240,89 +308,19 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
         unif_fn_data_path=unif_fn_data_path)
     unif_map = causal_inference_estimator.unif_map
 
-def process_mean_pair(args):
-    """
-    Processes pairs of means and finds the optimal kappa values that minimize the error
-    between model predictions and GAM data for a chunk of kappa combinations.
-    ...
-    """
-    task_idx, mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
-    max_to_save=50
-    error_threshold=0.0349066
-
-    mu1 = ut[mean_indices]
-    mu2 = us_n[mean_indices]
-    grid_sz = ut.shape[0]
-    np.random.seed(os.getpid())
-
-    # Select the chunk of kappa combinations
-    kappa1_chunk = kappa1_flat[kappa_indices]
-    kappa2_chunk = kappa2_flat[kappa_indices]
-
-    # Generate samples for running causal inference with concentrations from the kappa chunk
-    # t_samples, s_n_samples shape: [len(mean_indices), len(kappa1_flat), num_sim]
-    t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(
-        num_sim=num_sim,
-        mu_t=mu1,
-        mu_s_n=mu2,
-        kappa1=kappa1_chunk,
-        kappa2=kappa2_chunk)
-    
-    # Find the (circular) mean of (causal inference) optimal responses across all (t, s_n) samples
-    _, _, _, mean_sn_est = causal_inference_estimator.forward(
-        t_samples=t_samples,
-        s_n_samples=s_n_samples,
-        p_common=p_common,
-        kappa1=kappa1_chunk,
-        kappa2=kappa2_chunk)
-    del t_samples, s_n_samples
-
-    errors = compute_error(mean_sn_est, data_slice) # shape is [len(mean_indices), len(kappa1_flat)]
-    assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
-    del mean_sn_est
-
-    idx_min = np.argmin(errors, axis=1)
-    optimal_kappa1 = kappa1_chunk[idx_min]
-    optimal_kappa2 = kappa2_chunk[idx_min]
-    min_error = np.min(errors, axis=1)
-    if max_to_save > 0:
-        mean_min_indices,  kappas_min_indices = np.where(errors < error_threshold)
-        if (len(mean_min_indices) > max_to_save) or (len(mean_min_indices) < 2):
-            # Edge cases: too many or too few "good kappas" with small error values to be saved.
-            sorted_indices = np.argsort(errors, axis=None)
-            # Indices in sorted_indices corresponed to a flattened errors array
-            # Convert 1D indices of flattened errors back to 2D (row, column) indices
-            mean_min_indices,  kappas_min_indices = np.unravel_index(sorted_indices, errors.shape)
-            # Select only the first max_to_save indices (sorting ensures we select the best values)
-            mean_min_indices = mean_min_indices[:max_to_save]
-            kappas_min_indices = kappas_min_indices[:max_to_save]
-        
-        # Save the lowest errors and associated concentraions/kappa pairs
-        # Grid indices of mean stimuli values (and p_common) are identified using the task_idx data
-        # in task_metadata
-        errors_dict = {'errors': errors[mean_min_indices, kappas_min_indices],
-                       'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
-                       'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
-        
-        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}.pkl', 'wb') as f:
-            pickle.dump(errors_dict, f)
-        del errors_dict
-        # Call gc.collect() if experiencing memory issues
-
-    return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
-
 
 def report_min_error(results, p_commons, num_data_points):
     optimal_kappa_pairs = {}
-    min_error_for_idx_pc = {(idx, pc): np.pi for idx in range(num_data_points) for pc in p_commons}
+    min_error_for_idx_pc = {(idx, pc): 2*np.pi for idx in range(num_data_points) for pc in p_commons}
 
     # Find the minimum error for all pairs of mean stimuli values across kappa chunks
-    for mean_indices, p_common, optimal_kappa_pair, min_error in results:
+    for mean_indices, optimal_kappa_pair, min_errors in results:
         idx = mean_indices[0] # mean_indices is an array of one element *for now*
-        key = (idx, p_common)
-        if (key not in optimal_kappa_pairs) or (min_error[0] < min_error_for_idx_pc[key]):
-            optimal_kappa_pairs[key] = (optimal_kappa_pair[0], optimal_kappa_pair[1])
-            min_error_for_idx_pc[key] = min_error[0] # min_error has the same shape as mean_indices
+        for p_common, optimal_kappa_pair_pc, min_error in zip(p_commons, optimal_kappa_pair, min_errors):
+            key = (idx, p_common)
+            if (key not in optimal_kappa_pairs) or (min_error[0] < min_error_for_idx_pc[key]):
+                optimal_kappa_pairs[key] = (optimal_kappa_pair_pc[0], optimal_kappa_pair_pc[1])
+                min_error_for_idx_pc[key] = min_error[0] # min_error has the same shape as mean_indices
     return optimal_kappa_pairs, min_error_for_idx_pc
 
 
