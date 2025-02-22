@@ -62,10 +62,9 @@ class KappaFitter:
         """
         tasks = []
         print(f'Fitting for num_means={self.ut.shape}, data_shape={self.r_n.shape}, n_kappa_pairs={len(self.kappa1_flat)}')
-        print(f'User={self.user}')
         # Adjust based on memory availability
         if self.local_run:
-            chunk_size = 50
+            chunk_size = 500
         else:
             chunk_size = 10000
 
@@ -102,7 +101,7 @@ class KappaFitter:
                          initializer=init_worker,
                          initargs=initargs) as pool:
                 results = []
-                logger.debug(f"Multiprocessing pool created for {len(tasks)} tasks")
+                logger.warning(f"Multiprocessing pool created for {len(tasks)} tasks")
                 for result in pool.imap_unordered(self.process_mean_pair, tasks):
                     results.append(result)
                     logger.debug(f'Num results: {len(results)}, '
@@ -201,6 +200,7 @@ class KappaFitter:
         mu1 = ut[mean_indices]
         mu2 = us_n[mean_indices]
         grid_sz = ut.shape[0]
+
         np.random.seed(os.getpid())
 
         # Select the chunk of kappa combinations
@@ -332,6 +332,8 @@ if __name__ == '__main__':
                         help="Number of kappa values to be used for fitting kappa1")
     parser.add_argument('--num_kappa2s', type=int, default=100,
                         help="Number of kappa values to be used for fitting kappa2")
+    parser.add_argument('--num_p_c', type=int, default=20,
+                        help="Number of p_common values to be used for fitting p_common")
     parser.add_argument('--num_sim', type=int, default=1000,
                         help="Number of simulations to be run for each kappa pair")
     parser.add_argument('--t_index', type=int, default=2,
@@ -345,7 +347,6 @@ if __name__ == '__main__':
     parser.add_argument('--use_unif_internal_space', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     D = 250
-    p_commons = np.linspace(0, 1, num=40)
 
     args = parser.parse_args()
 
@@ -353,11 +354,12 @@ if __name__ == '__main__':
     if args.debug:
         logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
     else:
-        logging.basicConfig(level=logging.CRITICAL, format='[%(levelname)s] %(message)s')
+        logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] %(message)s')
 
     num_sim = args.num_sim
     t_index = args.t_index
     user = args.user
+    num_p_c = args.num_p_c
     local_run = args.local_run
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
@@ -366,6 +368,8 @@ if __name__ == '__main__':
         data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
     angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
     unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
+
+    logger.warning(f'Running circular causal inference with parameters: {args}')
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
@@ -381,7 +385,7 @@ if __name__ == '__main__':
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
         assert (use_unif_internal_space > 0)
-        # Select indices from quadrant [-np.pi, -np.pi/2)
+        # Select indices from quadrant [-np.pi/2, 0)
         indices = 250 // 4 + utils.select_evenly_spaced_integers(num=use_unif_internal_space,
                                                                 start=0,
                                                                 end=250 // 4)
@@ -434,6 +438,7 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
+    p_commons = np.linspace(0, 1, num=num_p_c)
     min_kappa1, max_kappa1, num_kappa1s = 1, 200, args.num_kappa1s
     min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, args.num_kappa2s
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()

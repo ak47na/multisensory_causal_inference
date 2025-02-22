@@ -35,7 +35,6 @@ def get_interp(mean_file_path='./learned_data/R_mean_250_250.npy',
 
 class UVM(Distribution):
     def __init__(self, loc, scale, kappa, interp=None, num_sim=1000, 
-                 #unif_fn_data_path='./uniform_model_base_inv_kappa_free.pkl') 
                 unif_fn_data_path = './uniform_model_base_inv_kappa_free.pkl')-> None:
         super().__init__(loc, scale, kappa, interp)
         #assert (np.asarray(loc).shape == np.asarray(kappa).shape)
@@ -61,7 +60,7 @@ class UVM(Distribution):
                                              kappa=self.kappa, 
                                              interp=self.interp, 
                                              f='R_mean',
-                                             use_binary_search=False)
+                                             use_binary_search=True)
     
     def learn_mean_and_mode(self, mean_file_path=None, mode_file_path=None):
         if isinstance(self.loc, int):
@@ -82,7 +81,7 @@ class UVM(Distribution):
                                              kappa=self.kappa, 
                                              interp=self.interp, 
                                              f='R_mode',
-                                             use_binary_search=False)
+                                             use_binary_search=True)
         
     
     def decision_rule(self, decision_rule):
