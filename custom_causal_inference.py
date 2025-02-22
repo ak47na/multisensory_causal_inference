@@ -30,6 +30,19 @@ class CustomCausalInference(VonMisesCausalInference):
 
         Returns:
         (float or np.ndarray): Fusion estimate.
+
+        Example:
+            For the uniform space VM model, the optimal fusion estimate is the mode of the posterior
+            distribution in angle space: U^{-1}(p(x_a|s)p(x_v|s)p(s)).
+            
+            In natural parameters form, the posterior in internal space is p(\eta_a|\eta)p(\eta_v|\eta)p(\eta).
+            For now, p(\eta) is assumed uniform, and p(\eta_a|\eta) = VM(\eta_a; \eta), p(\eta_v|\eta) = VM(\eta_v; \eta).
+            By exponential family properties, VM(\eta_a; \eta)VM(\eta_v; \eta) = VM(\eta; \eta_a + \eta_v).
+            The MAP in internal space is the mode of the posterior distribution in internal space, which for VM is the mean = arctan(\eta_a + \eta_v)
+            
+            In angle space, the MAP estimate is the mode of the posterior distribution in angle space: U^{-1}(VM(\eta; \eta_a + \eta_v)).
+            Based on empirical results, the mean of the posterior distribution in angle space is a better estimate,
+            so we use the mean as the decision rule (`self.decision_rule`).
         """
         assert (simulate == False)
         if (mu_p is not None) or (sigma_p is not None):
@@ -67,6 +80,23 @@ class CustomCausalInference(VonMisesCausalInference):
 
         Returns:
         (float or np.ndarray): Segregation estimate matching the type of x.
+
+        Note:
+            The optimal estimates when the two cue sources are different is the same as when there would be only 
+            a single estimate.
+
+        Example:
+            For the uniform space VM model, by the note above, the optimal estimate is the mode of the posterior
+            distribution in angle space: U^{-1}(p(s|C=2, x)) = U^{-1}(VM(x, sigma)).
+            
+            In natural parameters form, the posterior in internal space is p(\eta|C=2, \eta_1), ||\eta||= ||\eta_1||.
+            Using Bayes rule, we get p(\eta|C=2, \eta_1) \propto p(\eta_1, C=1|\eta)p(\eta) = VM(\eta_1; \eta)p(\eta).
+            p(\eta) is assumed uniform, so the posterior in internal space is VM(\eta_1).
+            
+            The MAP estimate is the mode of the posterior distribution in angle space: U^{-1}(VM(x, sigma)).
+            *Based on empirical results, the mean of the posterior distribution in angle space is a better estimate,
+            so we use the mean as the decision rule (`self.decision_rule`).
+        
         """
         if (mu_p is not None) or (sigma_p is not None):
             raise NotImplementedError("Von Mises segregation estimate only implemented for uniform prior")
@@ -88,6 +118,14 @@ class CustomCausalInference(VonMisesCausalInference):
 
         Returns:
         float: Bayesian causal inference estimate.
+
+        Example:
+            As causal inference is performed in internal space, but the decision rule is taken in angle space,
+            the uniformising space model's P(C=1|x_v, x_a), P(C=2|x_v, x_a) are the same as in Von Mises causal inference.
+            The optimal estimates for the two cues are:
+                \hat{s_v} = P(C=1|x_v, x_a) * \hat{s_{C=1}} + P(C=2|x_v) \hat{s_{v, C=2}}
+                \hat{s_a} = P(C=1|x_v, x_a) * \hat{s_{C=1}} + P(C=2|x_a) \hat{s_{a, C=2}}},
+                with \hat{s_{C=1}} = \hat{s_{v, C=1}} = \hat{s_{a, C=1}}
         """
         # P(C=1|x_v, x_a) (unchanged by the uniformising map as the integration is in internal space)
         posterior_p_common = self.posterior_prob_common_cause(x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, pi_c)
