@@ -92,7 +92,7 @@ class KappaFitter:
                     }
                     task_idx += 1
 
-        with open(f'./learned_data/task_metadata_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
@@ -257,7 +257,7 @@ class KappaFitter:
                             'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
                             'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
                 
-        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
         del errors_dict
         del t_samples, s_n_samples
