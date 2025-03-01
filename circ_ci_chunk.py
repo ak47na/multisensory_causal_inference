@@ -32,7 +32,8 @@ class KappaFitter:
                  angle_gam_data_path,
                  unif_fn_data_path,
                  local_run,
-                 user):
+                 user,
+                 t_index):
         self.ut = ut
         self.us_n = us_n
         self.r_n = r_n
@@ -44,6 +45,7 @@ class KappaFitter:
         self.unif_fn_data_path = unif_fn_data_path
         self.local_run = local_run
         self.user = user
+        self.t_index = t_index
 
     def find_optimal_kappas(self):
         """
@@ -90,7 +92,7 @@ class KappaFitter:
                     }
                     task_idx += 1
 
-        with open(f'./learned_data/task_metadata_{grid_sz}.pkl', 'wb') as f:
+        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
@@ -255,7 +257,7 @@ class KappaFitter:
                             'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
                             'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
                 
-        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}.pkl', 'wb') as f:
+        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
             pickle.dump(errors_dict, f)
         del errors_dict
         del t_samples, s_n_samples
@@ -471,7 +473,8 @@ if __name__ == '__main__':
                          angle_gam_data_path=angle_gam_data_path,
                          unif_fn_data_path=unif_fn_data_path,
                          local_run=local_run,
-                         user=user)
+                         user=user,
+                         t_index=t_index)
 
     optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
@@ -485,14 +488,14 @@ if __name__ == '__main__':
         plt.plot(list(min_error_for_idx.keys()), list(min_error_for_idx.values()))
         plt.show()
     grid_sz = s_n.shape[0]
-    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}.pkl', 'wb') as f:
+    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open(f'./learned_data/min_error_for_idx_{grid_sz}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
-    np.save(f'./learned_data/selected_s_n_{grid_sz}.npy', arr=s_n)
-    np.save(f'./learned_data/selected_t_{grid_sz}.npy', arr=t)
-    np.save(f'./learned_data/selected_r_n_{grid_sz}.npy', arr=r_n)
+    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}.npy', arr=s_n)
+    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}.npy', arr=t)
+    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}.npy', arr=r_n)
     print(f'Max error = {max(min_error_for_idx.values())}, '
                  f'avg error: {np.mean(list(min_error_for_idx.values()))}')
