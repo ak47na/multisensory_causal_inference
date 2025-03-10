@@ -441,8 +441,8 @@ if __name__ == '__main__':
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n')
 
     p_commons = np.linspace(0, 1, num=num_p_c)
-    min_kappa1, max_kappa1, num_kappa1s = 1, 200, args.num_kappa1s
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300, args.num_kappa2s
+    min_kappa1, max_kappa1, num_kappa1s = 1, 300, args.num_kappa1s
+    min_kappa2, max_kappa2, num_kappa2s = 1.1, 300.2, args.num_kappa2s
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
