@@ -263,9 +263,9 @@ class KappaFitter:
                     # Save the lowest errors and associated concentraions/kappa pairs
                     # Grid indices of mean stimuli values (and p_common) are identified using the task_idx data
                     # in task_metadata
-                    errors_dict[p_common] = {f'errors_{est}': errors[est][mean_min_indices, kappas_min_indices],
+                    errors_dict[p_common].update({f'errors_{est}': errors[est][mean_min_indices, kappas_min_indices],
                                 f'optimal_kappa1_{est}': np.round(kappa1_flat[kappas_min_indices], 4),
-                                f'optimal_kappa2_{est}': np.round(kappa2_flat[kappas_min_indices], 4)}
+                                f'optimal_kappa2_{est}': np.round(kappa2_flat[kappas_min_indices], 4)})
         if max_to_save > 0:
             with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
                 pickle.dump(errors_dict, f)
