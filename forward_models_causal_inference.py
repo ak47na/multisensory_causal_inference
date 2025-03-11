@@ -53,7 +53,7 @@ class CausalEstimator:
         num_sim (int): Number of simulations to run (i.e., the number of samples to generate).
         mu_t (ndarray|int|float): Mean directions for the distributions of regressor t.
         mu_s_n (ndarray|int|float): Mean directions for the distributions of s_n.
-        .ndim(ndarray|int|float): Concentration parameters for the distributions of regressor t.
+        kappa1 (ndarray|int|float): Concentration parameters for the distributions of regressor t.
         kappa2 (ndarray|int|float): Concentration parameters for the distributions of s_n.
 
         Returns:

@@ -90,7 +90,7 @@ class CustomCausalInference(VonMisesCausalInference):
             distribution in angle space: U^{-1}(p(s|C=2, x)) = U^{-1}(VM(x, sigma)).
             
             In natural parameters form, the posterior in internal space is p(\eta|C=2, \eta_1), ||\eta||= ||\eta_1||.
-            Using Bayes rule, we get p(\eta|C=2, \eta_1) \propto p(\eta_1, C=1|\eta)p(\eta) = VM(\eta_1; \eta)p(\eta).
+            Using Bayes rule, we get p(\eta|C=2, \eta_1) \propto p(\eta_1, C=2|\eta)p(\eta) = VM(\eta_1; \eta)p(\eta).
             p(\eta) is assumed uniform, so the posterior in internal space is VM(\eta_1).
             
             The MAP estimate is the mode of the posterior distribution in angle space: U^{-1}(VM(x, sigma)).
