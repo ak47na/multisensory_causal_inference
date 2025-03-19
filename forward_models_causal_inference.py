@@ -2,9 +2,7 @@ import numpy as np
 import pickle
 import uniformised_space_utils as usu
 from scipy.stats import vonmises, circmean
-import matplotlib.pyplot as plt
 from custom_causal_inference import CustomCausalInference
-from repulsion_hypothesis import repulsion_value
 import utils
 
 
@@ -24,6 +22,7 @@ def reshape_kappa_for_sampling(kappa):
 def reshape_kappa_for_causal_inference(kappa, num_mus):
     if kappa.ndim == 2:
         assert (kappa.shape[0] == num_mus)
+        return kappa
     kappa = reshape_kappa_for_sampling(kappa)
     kappa = np.tile(kappa, reps=(num_mus, 1))
     assert (kappa.ndim == 2) and (kappa.shape[0] == num_mus)
@@ -62,6 +61,9 @@ class CausalEstimator:
             - t_samples (ndarray): Samples from the t distribution, shape (num_sim, len(mu_t), kappa1.shape[1]).
             - s_n_samples (ndarray): Samples from the s_n distribution, shape (num_sim, len(mu_s_n), kappa2.shape[1]).
         """
+        assert ((mu_s_n.ndim == 1) and (mu_t.ndim == 1)), f"Means of stimuli mu_s_n, mu_t should be one dimensional arrays" 
+        assert ((kappa1.shape[0] == mu_s_n.shape[0]) or (kappa1.shape[0] == 1) or (kappa1.ndim == 1)), f"Kappa1 concentrations should of shape (num_means, num_kappas_per_mean) or (1, num_kappas)"
+        assert ((kappa2.shape[0] == mu_s_n.shape[0]) or (kappa2.shape[0] == 1) or (kappa1.ndim == 1)), f"Kappa2 concentrations should of shape (num_means, num_kappas_per_mean) or (1, num_kappas)"
         kappa1 = reshape_kappa_for_sampling(kappa1)
         kappa2 = reshape_kappa_for_sampling(kappa2)
         t_samples = vonmises(loc=mu_t[:, np.newaxis], kappa=kappa1).rvs(size=(num_sim, mu_t.shape[0], kappa1.shape[1]))
@@ -88,6 +90,8 @@ class CausalEstimator:
             num_sim = self.num_sim
         t_samples, s_n_samples = self.get_vm_samples(num_sim=num_sim, mu_t=mu_t, mu_s_n=mu_s_n,
                                                      kappa1=kappa1, kappa2=kappa2)
+        assert (t_samples.shape[1] == kappa1.shape[0])
+        assert (s_n_samples.shape[1] == kappa2.shape[0])
         return self.forward(t_samples=t_samples, s_n_samples=s_n_samples, kappa1=kappa1, 
                             kappa2=kappa2, p_common=p_common)
 
@@ -126,10 +130,10 @@ class CausalEstimator:
                                                                     mu_p=self.mu_p, 
                                                                     sigma_p=self.sigma_p,
                                                                     pi_c=p_common)
-        # Find circular mean across "optimal" estimates for samples.
-        mean_t_est = circmean(self.unif_map.unif_space_to_angle_space(responses[0]), 
+        # Find circular mean across "optimal" angle space estimates for each sample.
+        mean_t_est = circmean(responses[0], 
                                 low=-np.pi, high=np.pi, axis=0)
-        mean_sn_est = circmean(self.unif_map.unif_space_to_angle_space(responses[1]),
+        mean_sn_est = circmean(responses[1],
                                 low=-np.pi, high=np.pi, axis=0)
         return responses, posterior_p_common, mean_t_est, mean_sn_est
     
@@ -178,3 +182,4 @@ if __name__ == "__main__":
         results['posterior_p_common'].append(posterior_p_common)
         results['mean_t_est'].append(mean_t_est)
         results['mean_sn_est'].append(mean_sn_est)
+    print(results)

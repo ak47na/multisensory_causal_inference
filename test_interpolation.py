@@ -81,6 +81,10 @@ def test_f_mu_kappa_grid_interp(use_binary_search):
 test_bs_vectorized()
 test_find_closest_mu()
 larger_test_find_closest_mu()
+larger_test_find_closest_mu(num_mus=5, num_mu=10000)
+larger_test_find_closest_mu(num_mus=3, num_mu=10000)
+larger_test_find_closest_mu(num_mus=100, num_mu=10000)
+larger_test_find_closest_mu(num_mus=24, num_mu=10000)
 larger_test_find_closest_mu(num_mus=11, num_mu=250)
 larger_test_find_closest_mu(num_mus=11, num_mu=1)
 
