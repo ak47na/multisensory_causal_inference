@@ -8,14 +8,17 @@ from repulsion_hypothesis import repulsion_value
 import utils
 
 
-def heatmap_f_s_n_t(f_s_n_t, s_n, t, f_name, xlabel='s_n', ylabel='t'):
+def heatmap_f_s_n_t(f_s_n_t, s_n, t, f_name, xlabel='s_n', ylabel='t', image_path=None):
     plt.figure(figsize=(8, 6))
     plt.pcolormesh(s_n[0], t[:,0], f_s_n_t, shading='auto', cmap='twilight')
     plt.colorbar(label=f_name)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f'Heatmap of {f_name} with {xlabel} and {ylabel}')
-    plt.show()
+    if image_path is not None:
+        plt.savefig(image_path)
+    else:
+        plt.show()
     plt.clf()
 
 def plot_estimate(us_n, ut, r_n, mu_x_dim, estimate, est_label, plot_heatmap):
