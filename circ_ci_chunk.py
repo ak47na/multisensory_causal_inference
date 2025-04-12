@@ -80,28 +80,21 @@ class KappaFitter:
         task_idx = 0
         task_metadata = {}
         for i, data_slice in enumerate(self.r_n):
-            for p_common in self.p_commons:
-                for chunk_idx in range(num_chunks):
-                    start_idx = chunk_idx * chunk_size
-                    end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
-                    kappa_indices_chunk = kappa_indices[start_idx:end_idx]
-                    tasks.append((task_idx,
-                                  np.array([i]),
-                                  self.ut,
-                                  self.us_n,
-                                  self.kappa1_flat,
-                                  self.kappa2_flat,
-                                  self.num_sim,
-                                  data_slice,
-                                  p_common,
-                                  kappa_indices_chunk))
-                    task_metadata[task_idx] = {
-                        'mean_indices': np.array([i]),
-                        'p_common': p_common,
-                        'kappa_indices': (start_idx, end_idx)
-                    }
-                    task_idx += 1
+            for chunk_idx in range(num_chunks):
+                start_idx = chunk_idx * chunk_size
+                end_idx = min((chunk_idx + 1) * chunk_size, total_kappa_combinations)
+                kappa_indices_chunk = kappa_indices[start_idx:end_idx]
+                tasks.append((task_idx,
+                                np.array([i]),
+                                data_slice,
+                                kappa_indices_chunk))
+                task_metadata[task_idx] = {
+                    'mean_indices': np.array([i]),
+                    'kappa_indices': (start_idx, end_idx)
+                }
+                task_idx += 1
 
+        grid_sz = self.r_n.shape[0]
         with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
@@ -144,7 +137,7 @@ class KappaFitter:
                                        timeout_min=1000,
                                        mem_gb=32,
                                        cpus_per_task=num_processes)
-            jobs = executor.map_array(process_mean_pair, tasks)
+            jobs = executor.map_array(self.process_mean_pair, tasks)
             logger.debug('Before running results')
             job_ids = [job.job_id for job in jobs]
             results = []
@@ -327,82 +320,12 @@ def init_worker(angle_gam_data_path, unif_fn_data_path):
         unif_fn_data_path=unif_fn_data_path)
     unif_map = causal_inference_estimator.unif_map
 
-def process_mean_pair(args):
-    """
-    Processes pairs of means and finds the optimal kappa values that minimize the error
-    between model predictions and GAM data for a chunk of kappa combinations.
-    ...
-    """
-    task_idx, mean_indices, ut, us_n, kappa1_flat, kappa2_flat, num_sim, data_slice, p_common, kappa_indices = args
-    max_to_save=50
-    error_threshold=0.0349066
-
-    mu1 = ut[mean_indices]
-    mu2 = us_n[mean_indices]
-    np.random.seed(os.getpid())
-
-    # Select the chunk of kappa combinations
-    kappa1_chunk = kappa1_flat[kappa_indices]
-    kappa2_chunk = kappa2_flat[kappa_indices]
-
-    # Generate samples for running causal inference with concentrations from the kappa chunk
-    # t_samples, s_n_samples shape: [len(mean_indices), len(kappa1_flat), num_sim]
-    t_samples, s_n_samples = causal_inference_estimator.get_vm_samples(
-        num_sim=num_sim,
-        mu_t=mu1,
-        mu_s_n=mu2,
-        kappa1=kappa1_chunk,
-        kappa2=kappa2_chunk)
-    
-    # Find the (circular) mean of (causal inference) optimal responses across all (t, s_n) samples
-    _, _, _, mean_sn_est = causal_inference_estimator.forward(
-        t_samples=t_samples,
-        s_n_samples=s_n_samples,
-        p_common=p_common,
-        kappa1=kappa1_chunk,
-        kappa2=kappa2_chunk)
-    del t_samples, s_n_samples
-
-    errors = compute_error(mean_sn_est, data_slice) # shape is [len(mean_indices), len(kappa1_flat)]
-    assert mean_sn_est.ndim == 2, f'Found mean_sn_est_shape={mean_sn_est.shape}'
-    del mean_sn_est
-
-    idx_min = np.argmin(errors, axis=1)
-    optimal_kappa1 = kappa1_chunk[idx_min]
-    optimal_kappa2 = kappa2_chunk[idx_min]
-    min_error = np.min(errors, axis=1)
-    if max_to_save > 0:
-        mean_min_indices,  kappas_min_indices = np.where(errors < error_threshold)
-        if (len(mean_min_indices) > max_to_save) or (len(mean_min_indices) < 2):
-            # Edge cases: too many or too few "good kappas" with small error values to be saved.
-            sorted_indices = np.argsort(errors, axis=None)
-            # Indices in sorted_indices corresponed to a flattened errors array
-            # Convert 1D indices of flattened errors back to 2D (row, column) indices
-            mean_min_indices,  kappas_min_indices = np.unravel_index(sorted_indices, errors.shape)
-            # Select only the first max_to_save indices (sorting ensures we select the best values)
-            mean_min_indices = mean_min_indices[:max_to_save]
-            kappas_min_indices = kappas_min_indices[:max_to_save]
-        
-        # Save the lowest errors and associated concentraions/kappa pairs
-        # Grid indices of mean stimuli values (and p_common) are identified using the task_idx data
-        # in task_metadata
-        errors_dict = {'errors': errors[mean_min_indices, kappas_min_indices],
-                       'optimal_kappa1': np.round(kappa1_flat[kappas_min_indices], 4),
-                       'optimal_kappa2': np.round(kappa2_flat[kappas_min_indices], 4)}
-        
-        with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}.pkl', 'wb') as f:
-            pickle.dump(errors_dict, f)
-        del errors_dict
-        # Call gc.collect() if experiencing memory issues
-
-    return (mean_indices, p_common, (optimal_kappa1, optimal_kappa2), min_error)
-
 
 def report_min_error(results, p_commons, num_data_points, estimates_to_fit):
     optimal_kappa_pairs = {est: {} for est in estimates_to_fit}
     min_error_for_idx_pc = {est: {(idx, pc): 2*np.pi for idx in range(num_data_points) for pc in p_commons} for est in estimates_to_fit}
     # Find the minimum error for all pairs of mean stimuli values across kappa chunks
-    for mean_indices, p_common, optimal_kappa_pair, min_error in results:
+    for mean_indices, optimal_kappa_pair, min_errors in results:
         idx = mean_indices[0] # mean_indices is an array of one element *for now*
         assert len(mean_indices) == 1, f'Found mean_indices={mean_indices}'
         for est in estimates_to_fit:
@@ -434,6 +357,8 @@ if __name__ == '__main__':
                         help='True if the script runs locally using multiprocessing')
     parser.add_argument('--use_high_cc_error_pairs', type=bool, default=False,
                         help='True if grid pairs are selected based on cue combination errors')
+    parser.add_argument('--use_respone_mean_map', type=bool, default=False,
+                        help='True if the mean response is use as internal space map')
     parser.add_argument('--use_unif_internal_space', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     D = 250
@@ -454,10 +379,14 @@ if __name__ == '__main__':
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
     data_pref = '.'
+    use_respone_mean_map = args.use_respone_mean_map
     if not local_run:
         data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
     angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
-    unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
+    if use_respone_mean_map:
+        unif_fn_data_path = f'{data_pref}/mean_response_map.pkl'
+    else:
+        unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
 
     logger.warning(f'Running circular causal inference with parameters: {args}')
 
@@ -592,7 +521,7 @@ if __name__ == '__main__':
     np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}.npy', arr=s_n)
     np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}.npy', arr=t)
     np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}.npy', arr=r_n)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     best_errors = {idx: min(min_error_for_idx['sn'][idx], min_error_for_idx['t'][idx]) for idx in min_error_for_idx['sn'].keys()}
     print(f'Max error = {max(best_errors.values())}, '
                  f'avg error: {np.mean(list(best_errors.values()))}')
