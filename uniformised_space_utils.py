@@ -1,12 +1,44 @@
 import numpy as np
 # import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+from abc import abstractmethod
+import utils
 
 EPS = 1e-7
 
-
-class UnifMap:
+class AbsUnifMap:
     def __init__(self, data):
+        self.data = data
+    @abstractmethod
+    def angle_space_to_unif_space(self, th):
+        """
+        Maps angles to internal space.
+        """
+    @abstractmethod
+    def unif_space_to_angle_space(self, u_th):
+        """
+        Maps internal space back to angle space.
+        """
+
+
+class MeanRespMap(AbsUnifMap):
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.grid = data['grid']
+        self.f = data['f']
+        self.period = data.get('period', np.pi * 2)
+
+    def angle_space_to_unif_space(self, th: np.ndarray) -> np.ndarray:
+        u = np.interp(utils.wrap(th), xp=self.grid, yp=self.f, period=self.period)
+        return u
+
+    def unif_space_to_angle_space(self, u_th: np.ndarray) -> np.ndarray:
+        th = np.interp(utils.wrap(u_th), xp=self.f, yp=self.grid, period=self.period)
+        return th
+
+class UnifMap(AbsUnifMap):
+    def __init__(self, data):
+        super().__init__(data)
         self.data = data
         left_pdf_bound, right_pdf_bound = self.data['pdf'][0], self.data['pdf'][-1]
         if self.data['grid'][0] + np.pi > EPS:
