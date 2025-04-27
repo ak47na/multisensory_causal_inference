@@ -3,6 +3,18 @@ import matplotlib.pyplot as plt
 from typing import Tuple
 from scipy.stats import mode
 
+
+def get_filtered_gam(gam_data, max_circ_dist, r_n_key='r_n'):
+    filtered_gam_data = {'s_n': [], 'r_n': []}
+    for s_n, r_n in zip(gam_data['s_n'], gam_data[r_n_key]):
+        if circular_dist(s_n, r_n) < max_circ_dist:
+            filtered_gam_data['s_n'].append(s_n)
+            filtered_gam_data['r_n'].append(r_n)
+    filtered_gam_data['s_n'] = np.array(filtered_gam_data['s_n'])
+    filtered_gam_data['r_n'] = np.array(filtered_gam_data['r_n'])
+    return filtered_gam_data
+
+
 def get_cc_high_error_pairs(grid, gam_data, max_samples=400, t_index=2):
     '''
     Returns at most max_samples random tuples of (s_n, t, r_n) from the grid pairs where no optimal
