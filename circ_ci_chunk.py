@@ -341,11 +341,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fit kappas for grid pairs as specified by arguments.")
     parser.add_argument('--debug', action='store_true',
                         help="If set, prints/log statements are enabled at DEBUG level.")
-    parser.add_argument('--num_kappa1s', type=int, default=100,
+    parser.add_argument('--num_kappa1s', type=int, default=12,
                         help="Number of kappa values to be used for fitting kappa1")
-    parser.add_argument('--num_kappa2s', type=int, default=100,
+    parser.add_argument('--num_kappa2s', type=int, default=12,
                         help="Number of kappa values to be used for fitting kappa2")
-    parser.add_argument('--num_p_c', type=int, default=20,
+    parser.add_argument('--num_p_c', type=int, default=10,
                         help="Number of p_common values to be used for fitting p_common")
     parser.add_argument('--num_sim', type=int, default=1000,
                         help="Number of simulations to be run for each kappa pair")
@@ -459,20 +459,18 @@ if __name__ == '__main__':
         r_n = r_n[indices][:, indices]
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n', image_path=f'./figs/r_n_heatmap_{len(r_n)}_t{t_index}.png')
 
-    p_commons = np.linspace(0, 1, num=num_p_c)
-    min_kappa1, max_kappa1, num_kappa1s = 1, 400, args.num_kappa1s
-    min_kappa2, max_kappa2, num_kappa2s = 1.1, 200.2, args.num_kappa2s
+    p_commons = np.concatenate([np.linspace(0, 0.2, num=num_p_c//2), np.linspace(0.8, 1, num=(num_p_c+1)//2)])
+    min_kappa1, max_kappa1, num_kappa1s = 10, 120, args.num_kappa1s
+    min_kappa2, max_kappa2, num_kappa2s = 10.1, 120.1, args.num_kappa2s
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
-    kappa1 = np.logspace(start=np.log10(min_kappa1),
+    kappa1 = np.linspace(start=np.log10(min_kappa1),
                          stop=np.log10(max_kappa1),
-                         num=num_kappa1s,
-                         base=10)
-    kappa2 = np.logspace(start=np.log10(min_kappa2),
+                         num=num_kappa1s)
+    kappa2 = np.linspace(start=np.log10(min_kappa2),
                          stop=np.log10(max_kappa2),
-                         num=num_kappa2s,
-                         base=10)
+                         num=num_kappa2s)
     kappa1_grid, kappa2_grid = np.meshgrid(kappa1, kappa2, indexing='ij')
     kappa1_flat, kappa2_flat = kappa1_grid.flatten(), kappa2_grid.flatten()
     print(f'Performing causal inference for ut, us_n of shape {ut.shape, us_n.shape}')
