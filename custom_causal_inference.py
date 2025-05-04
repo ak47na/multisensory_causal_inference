@@ -5,11 +5,13 @@ from utils import wrap
 
 
 class CustomCausalInference(VonMisesCausalInference):
-    def __init__(self, interp=None, decision_rule='mean', simulate=False):
+    def __init__(self, interp=None, decision_rule='mean', simulate=False, lapse_rate=0):
         super().__init__(decision_rule=decision_rule)
         self.simulate = simulate
         self.interp = interp
         self.s_domain = np.linspace(-np.pi, np.pi, 1000).reshape(1, 1, 1, -1)
+        #TODO: should the lapse occur after causal inference or in the fusion estimate?
+        self.lapse_rate = lapse_rate
 
     def fusion_estimate(self, x_v, x_a, sigma_v, sigma_a, mu_p, sigma_p, simulate=False, return_sigma=False):
         """
