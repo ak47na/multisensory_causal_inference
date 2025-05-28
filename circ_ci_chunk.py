@@ -361,6 +361,8 @@ if __name__ == '__main__':
                         help='True if the mean response is use as internal space map')
     parser.add_argument('--use_unif_internal_space', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
+    parser.add_argument('--use_filtered_data', type=int, default=0,
+                        help='If nonzero, number of s_n, t values to be selected as uniform values from filtered gam in angle space')
     D = 250
 
     args = parser.parse_args()
@@ -378,11 +380,15 @@ if __name__ == '__main__':
     local_run = args.local_run
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
+    use_filtered_data = args.use_filtered_data
     data_pref = '.'
     use_respone_mean_map = args.use_respone_mean_map
     if not local_run:
         data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
-    angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
+    if use_filtered_data:
+        angle_gam_data_path = f'{data_pref}/filtered_data_gam.pkl'
+    else:
+        angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
     if use_respone_mean_map:
         unif_fn_data_path = f'{data_pref}/mean_response_map.pkl'
     else:
@@ -397,13 +403,13 @@ if __name__ == '__main__':
     unif_map = causal_inference_estimator.unif_map
 
     if use_high_cc_error_pairs:
-        assert (use_unif_internal_space == 0)
+        assert (use_unif_internal_space == 0) and (use_filtered_data == 0)
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                                     causal_inference_estimator.gam_data,
                                                     max_samples=1)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
-        assert (use_unif_internal_space > 0)
+        assert (use_unif_internal_space > 0) and (use_filtered_data == 0)
         # Select indices from quadrant [-np.pi/2, 0)
         indices = 250 // 4 + utils.select_evenly_spaced_integers(num=use_unif_internal_space,
                                                                 start=0,
@@ -446,6 +452,26 @@ if __name__ == '__main__':
             plt.clf()
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n', image_path=f'./figs/r_n_heatmap_{len(r_n)}_t{t_index}.png')
+    elif use_filtered_data != 0:
+        stimuli = np.linspace(-np.pi, np.pi, causal_inference_estimator.gam_data['full_pdf_mat'].shape[0])
+        grid_indices_selected_stimuli = utils.select_evenly_spaced_integers(num=use_filtered_data,
+                                                                start=0,
+                                                                end=len(stimuli)-1)
+        t, s_n = np.meshgrid(stimuli[grid_indices_selected_stimuli],
+                             stimuli[grid_indices_selected_stimuli],
+                             indexing='ij')
+        r_n = causal_inference_estimator.gam_data['full_pdf_mat'][grid_indices_selected_stimuli, :, t_index]
+        r_n = r_n[:, grid_indices_selected_stimuli]
+        t, s_n = np.meshgrid(stimuli[grid_indices_selected_stimuli],
+                             stimuli[grid_indices_selected_stimuli],
+                             indexing='ij')
+        if local_run:
+            plt.scatter(s_n, r_n, label='r_n as fn of s_n')
+            plt.legend()
+            plt.savefig(f'./figs/r_n_{len(r_n)}t_{t_index}_filt_gam.png')
+            plt.clf()
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+        plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n', image_path=f'./figs/r_n_heatmap_{len(r_n)}_t{t_index}_filt_gam.png')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                           causal_inference_estimator.gam_data)

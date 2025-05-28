@@ -7,7 +7,7 @@ from scipy.stats import mode
 def get_filtered_gam(gam_data, max_circ_dist, filter_wrong_quad=False, r_n_key='r_n'):
     filtered_gam_data = {'reg_dict': {key: [] for key in gam_data['reg_dict'].keys()}}
     for i in range(len(gam_data['reg_dict']['s_n'])):
-        s_n, r_n = gam_data['reg_dict']['s_n'][i], gam_data['reg_dict']['r_n'][i]
+        s_n, r_n = gam_data['reg_dict']['s_n'][i], gam_data['reg_dict'][r_n_key][i]
         if circular_dist(s_n, r_n) < max_circ_dist:
             if filter_wrong_quad:
                 # TODO: should we use the 4 quadrants or rather acc for the doubling of angles?
