@@ -363,6 +363,8 @@ if __name__ == '__main__':
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
     parser.add_argument('--use_filtered_data', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values from filtered gam in angle space')
+    parser.add_argument('--lapse_rate', type=float, default=0.0,
+                        help="Lapse rate for the causal inference model. Defaults to 0")
     D = 250
 
     args = parser.parse_args()
@@ -491,11 +493,11 @@ if __name__ == '__main__':
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
-    kappa1 = np.linspace(start=np.log10(min_kappa1),
-                         stop=np.log10(max_kappa1),
+    kappa1 = np.linspace(start=min_kappa1,
+                         stop=max_kappa1,
                          num=num_kappa1s)
-    kappa2 = np.linspace(start=np.log10(min_kappa2),
-                         stop=np.log10(max_kappa2),
+    kappa2 = np.linspace(start=min_kappa2,
+                         stop=max_kappa2,
                          num=num_kappa2s)
     kappa1_grid, kappa2_grid = np.meshgrid(kappa1, kappa2, indexing='ij')
     kappa1_flat, kappa2_flat = kappa1_grid.flatten(), kappa2_grid.flatten()
@@ -545,7 +547,6 @@ if __name__ == '__main__':
     np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}.npy', arr=s_n)
     np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}.npy', arr=t)
     np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}.npy', arr=r_n)
-    # import pdb; pdb.set_trace()
     best_errors = {idx: min(min_error_for_idx['sn'][idx], min_error_for_idx['t'][idx]) for idx in min_error_for_idx['sn'].keys()}
     print(f'Max error = {max(best_errors.values())}, '
                  f'avg error: {np.mean(list(best_errors.values()))}')
