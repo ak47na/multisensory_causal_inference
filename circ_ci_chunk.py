@@ -35,7 +35,8 @@ class KappaFitter:
                  local_run,
                  user,
                  t_index,
-                 estimates_to_fit):
+                 estimates_to_fit,
+                 reflect=False):
         self.ut = ut
         self.us_n = us_n
         self.r_n = r_n
@@ -49,6 +50,7 @@ class KappaFitter:
         self.user = user
         self.t_index = t_index
         self.estimates_to_fit = estimates_to_fit
+        self.reflect = reflect
 
     def find_optimal_kappas(self):
         """
@@ -204,6 +206,8 @@ class KappaFitter:
 
         mu1 = ut[mean_indices]
         mu2 = us_n[mean_indices]
+        if self.reflect and reflect_cond(mu1, mu2):
+            mu1 = -mu1
         grid_sz = ut.shape[0]
 
         np.random.seed(os.getpid())
