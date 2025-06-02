@@ -4,6 +4,9 @@ from typing import Tuple
 from scipy.stats import mode
 
 
+def reflect_cond(ang1, ang2):
+    return False
+
 def get_filtered_gam(gam_data, max_circ_dist, filter_wrong_quad=False, r_n_key='r_n'):
     filtered_gam_data = {'reg_dict': {key: [] for key in gam_data['reg_dict'].keys()}}
     for i in range(len(gam_data['reg_dict']['s_n'])):
