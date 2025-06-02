@@ -36,6 +36,7 @@ class KappaFitter:
                  user,
                  t_index,
                  estimates_to_fit,
+                 lapse_rate,
                  reflect=False):
         self.ut = ut
         self.us_n = us_n
@@ -51,6 +52,7 @@ class KappaFitter:
         self.t_index = t_index
         self.estimates_to_fit = estimates_to_fit
         self.reflect = reflect
+        self.lapse_rate = lapse_rate
 
     def find_optimal_kappas(self):
         """
@@ -101,7 +103,7 @@ class KappaFitter:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
-            initargs = (self.angle_gam_data_path, self.unif_fn_data_path)
+            initargs = (self.angle_gam_data_path, self.unif_fn_data_path, self.lapse_rate)
             logger.debug("Before creating multiprocessing pool")
             num_processes = os.cpu_count()
             with mp.Pool(processes=num_processes,
@@ -314,14 +316,15 @@ def get_folder_size(folder_path):
             continue
     return total_size
 
-def init_worker(angle_gam_data_path, unif_fn_data_path):
+def init_worker(angle_gam_data_path, unif_fn_data_path, lapse_rate):
     global causal_inference_estimator
     global unif_map
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
-        unif_fn_data_path=unif_fn_data_path)
+        unif_fn_data_path=unif_fn_data_path,
+        lapse_rate=lapse_rate)
     unif_map = causal_inference_estimator.unif_map
 
 
@@ -407,7 +410,8 @@ if __name__ == '__main__':
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
-        unif_fn_data_path=unif_fn_data_path)
+        unif_fn_data_path=unif_fn_data_path,
+        lapse_rate=args.lapse_rate,)
     unif_map = causal_inference_estimator.unif_map
 
     if use_high_cc_error_pairs:
@@ -528,6 +532,7 @@ if __name__ == '__main__':
                          user=user,
                          t_index=t_index,
                          estimates_to_fit=('sn', 't'),
+                         lapse_rate=args.lapse_rate,
                          reflect=args.reflect)
 
     optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
