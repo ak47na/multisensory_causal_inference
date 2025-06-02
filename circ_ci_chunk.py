@@ -518,7 +518,12 @@ if __name__ == '__main__':
         plt.legend()
         plt.savefig(f'./figs/kappa_values_{len(r_n)}.png')
         plt.clf()
-
+        plt.scatter(s_n, r_n, label='rn as fn of sn')
+        plt.scatter(t, r_n, label='rn as fn of t')
+        plt.scatter(s_n, s_n)
+        plt.legend()    
+        plt.savefig(f'./figs/data_points_{len(r_n)}.png')
+        
     fitter = KappaFitter(ut=ut,
                          us_n=us_n,
                          r_n=r_n,
