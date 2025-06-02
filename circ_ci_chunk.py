@@ -97,7 +97,7 @@ class KappaFitter:
                 task_idx += 1
 
         grid_sz = self.r_n.shape[0]
-        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
+        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}_{self.reflect}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
@@ -272,7 +272,7 @@ class KappaFitter:
                                 f'optimal_kappa1_{est}': np.round(kappa1_flat[kappas_min_indices], 4),
                                 f'optimal_kappa2_{est}': np.round(kappa2_flat[kappas_min_indices], 4)})
         if max_to_save > 0:
-            with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
+            with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}_{self.reflect}.pkl', 'wb') as f:
                 pickle.dump(errors_dict, f)
         del errors_dict
         del t_samples, s_n_samples
@@ -545,15 +545,15 @@ if __name__ == '__main__':
             plt.savefig(f'./figs/min_error_for_idx_{est}_t{t_index}.png')
             plt.clf()
     grid_sz = s_n.shape[0]
-    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}_{args.reflect}.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}_{args.reflect}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}_{args.reflect}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
-    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}.npy', arr=s_n)
-    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}.npy', arr=t)
-    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}.npy', arr=r_n)
+    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}_{args.reflect}.npy', arr=s_n)
+    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}_{args.reflect}.npy', arr=t)
+    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}_{args.reflect}.npy', arr=r_n)
     best_errors = {idx: min(min_error_for_idx['sn'][idx], min_error_for_idx['t'][idx]) for idx in min_error_for_idx['sn'].keys()}
     print(f'Max error = {max(best_errors.values())}, '
                  f'avg error: {np.mean(list(best_errors.values()))}')
