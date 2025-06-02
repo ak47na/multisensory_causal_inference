@@ -206,7 +206,7 @@ class KappaFitter:
 
         mu1 = ut[mean_indices]
         mu2 = us_n[mean_indices]
-        if self.reflect and reflect_cond(mu1, mu2):
+        if self.reflect and utils.reflect_cond(mu1, mu2):
             mu1 = -mu1
         grid_sz = ut.shape[0]
 
@@ -369,6 +369,8 @@ if __name__ == '__main__':
                         help='If nonzero, number of s_n, t values to be selected as uniform values from filtered gam in angle space')
     parser.add_argument('--lapse_rate', type=float, default=0.0,
                         help="Lapse rate for the causal inference model. Defaults to 0")
+    parser.add_argument('--reflect', type=bool, default=False,
+                        help="If True, regressor is reflect when in the wrong quadrant")
     D = 250
 
     args = parser.parse_args()
@@ -525,7 +527,8 @@ if __name__ == '__main__':
                          local_run=local_run,
                          user=user,
                          t_index=t_index,
-                         estimates_to_fit=('sn', 't'))
+                         estimates_to_fit=('sn', 't'),
+                         reflect=args.reflect)
 
     optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
