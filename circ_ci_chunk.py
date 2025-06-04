@@ -37,6 +37,7 @@ class KappaFitter:
                  t_index,
                  estimates_to_fit,
                  lapse_rate,
+                 unif_map_key='pdf',
                  reflect=False):
         self.ut = ut
         self.us_n = us_n
@@ -53,6 +54,7 @@ class KappaFitter:
         self.estimates_to_fit = estimates_to_fit
         self.reflect = reflect
         self.lapse_rate = lapse_rate
+        self.unif_map_key = unif_map_key
 
     def find_optimal_kappas(self):
         """
@@ -103,7 +105,7 @@ class KappaFitter:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
-            initargs = (self.angle_gam_data_path, self.unif_fn_data_path, self.lapse_rate)
+            initargs = (self.angle_gam_data_path, self.unif_fn_data_path, self.lapse_rate, self.unif_map_key)
             logger.debug("Before creating multiprocessing pool")
             num_processes = os.cpu_count()
             with mp.Pool(processes=num_processes,
@@ -316,10 +318,9 @@ def get_folder_size(folder_path):
             continue
     return total_size
 
-def init_worker(angle_gam_data_path, unif_fn_data_path, lapse_rate):
+def init_worker(angle_gam_data_path, unif_fn_data_path, lapse_rate, unif_map_key):
     global causal_inference_estimator
     global unif_map
-    global unif_map_key
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
@@ -552,6 +553,7 @@ if __name__ == '__main__':
                          t_index=t_index,
                          estimates_to_fit=('sn', 't'),
                          lapse_rate=args.lapse_rate,
+                         unif_map_key=unif_map_key,
                          reflect=args.reflect)
 
     optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
