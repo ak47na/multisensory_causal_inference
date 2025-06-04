@@ -412,7 +412,7 @@ if __name__ == '__main__':
     if use_respone_mean_map:
         unif_pref = '_mean_resp'
         unif_fn_data_path = f'{data_pref}/mean_response_map.pkl'
-    elif args.use_unif_internal_space:
+    elif args.use_flexible_mean_map:
         unif_pref = '_fl_means'
         unif_map_key = 'mean_pdf'
         unif_fn_data_path = f'{data_pref}/uniform_base_flexible_means_120_final_fits.pkl' 
@@ -571,15 +571,15 @@ if __name__ == '__main__':
             plt.savefig(f'./figs/min_error_for_idx_{est}_t{t_index}.png')
             plt.clf()
     grid_sz = s_n.shape[0]
-    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.pkl', 'wb') as f:
+    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
-    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.npy', arr=s_n)
-    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.npy', arr=t)
-    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}_{args.reflect}_{unif_pref}_{data_type_pref}.npy', arr=r_n)
+    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=s_n)
+    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=t)
+    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=r_n)
     best_errors = {idx: min(min_error_for_idx['sn'][idx], min_error_for_idx['t'][idx]) for idx in min_error_for_idx['sn'].keys()}
     print(f'Max error = {max(best_errors.values())}, '
                  f'avg error: {np.mean(list(best_errors.values()))}')
