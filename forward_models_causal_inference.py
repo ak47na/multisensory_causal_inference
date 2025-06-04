@@ -68,7 +68,7 @@ def flip_sign_of_random_proportion(arr: np.ndarray, lapse_rate: float) -> np.nda
 
 
 class CausalEstimator:
-    def __init__(self, model, angle_gam_data_path, unif_fn_data_path, mu_p=None, sigma_p=None, num_sim=10000, lapse_rate=0.0):
+    def __init__(self, model, angle_gam_data_path, unif_fn_data_path, mu_p=None, sigma_p=None, num_sim=10000, lapse_rate=0.0, unif_map_key='pdf'):
         self.model = model
         # Load the GAM.
         with open(angle_gam_data_path, 'rb') as file:
@@ -77,7 +77,7 @@ class CausalEstimator:
         with open(unif_fn_data_path, 'rb') as file:
             unif_fn_data = pickle.load(file)
         # Initialise uniformising function map.
-        self.unif_map = usu.UnifMap(data=unif_fn_data)
+        self.unif_map = usu.UnifMap(data=unif_fn_data, pdf_key=unif_map_key)
         self.unif_map.get_cdf_and_inverse_cdf()
         self.mu_p=mu_p
         self.sigma_p=sigma_p

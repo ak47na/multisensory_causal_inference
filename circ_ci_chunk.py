@@ -319,12 +319,14 @@ def get_folder_size(folder_path):
 def init_worker(angle_gam_data_path, unif_fn_data_path, lapse_rate):
     global causal_inference_estimator
     global unif_map
+    global unif_map_key
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path,
-        lapse_rate=lapse_rate)
+        lapse_rate=lapse_rate,
+        unif_map_key=unif_map_key)
     unif_map = causal_inference_estimator.unif_map
 
 
@@ -397,6 +399,7 @@ if __name__ == '__main__':
     data_pref = '.'
     data_type_pref = ''
     use_respone_mean_map = args.use_respone_mean_map
+    unif_map_key = 'pdf'
     if not local_run:
         data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
     if use_filtered_data:
@@ -410,6 +413,7 @@ if __name__ == '__main__':
         unif_fn_data_path = f'{data_pref}/mean_response_map.pkl'
     elif args.use_unif_internal_space:
         unif_pref = '_fl_means'
+        unif_map_key = 'mean_pdf'
         unif_fn_data_path = f'{data_pref}/uniform_base_flexible_means_120_final_fits.pkl' 
     else:
         unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
@@ -420,7 +424,8 @@ if __name__ == '__main__':
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
         unif_fn_data_path=unif_fn_data_path,
-        lapse_rate=args.lapse_rate,)
+        lapse_rate=args.lapse_rate,
+        unif_map_key=unif_map_key)
     unif_map = causal_inference_estimator.unif_map
 
     if use_high_cc_error_pairs:
