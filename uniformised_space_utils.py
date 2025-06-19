@@ -37,9 +37,12 @@ class MeanRespMap(AbsUnifMap):
         return th
 
 class UnifMap(AbsUnifMap):
-    def __init__(self, data):
+    def __init__(self, data, pdf_key='pdf'):
         super().__init__(data)
         self.data = data
+        if pdf_key != 'pdf':
+            self.data['pdf'] = self.data[pdf_key]
+            self.data['grid'] = np.linspace(-np.pi, np.pi, self.data['pdf'].shape[0])
         left_pdf_bound, right_pdf_bound = self.data['pdf'][0], self.data['pdf'][-1]
         if self.data['grid'][0] + np.pi > EPS:
             self.data['grid'] = np.insert(self.data['grid'], 0, -np.pi)

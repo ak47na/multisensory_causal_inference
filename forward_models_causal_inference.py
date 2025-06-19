@@ -28,8 +28,47 @@ def reshape_kappa_for_causal_inference(kappa, num_mus):
     assert (kappa.ndim == 2) and (kappa.shape[0] == num_mus)
     return kappa
 
+def flip_sign_of_random_proportion(arr: np.ndarray, lapse_rate: float) -> np.ndarray:
+    """
+    Flips the sign of a random proportion of elements in a NumPy ndarray.
+
+    Args:
+        arr (np.ndarray): The input NumPy array of unknown shape.
+        lapse_rate (float): The proportion of elements (e.g., 1/6) whose sign
+                            should be flipped. Must be between 0 and 1.
+
+    Returns:
+        np.ndarray: A new NumPy array with the signs of a random proportion
+                    of elements flipped. The shape will be the same as the input array.
+    """
+    if not (0 <= lapse_rate <= 1):
+        raise ValueError("lapse_rate must be between 0 and 1.")
+
+    original_shape = arr.shape
+    flattened_arr = arr.flatten()
+    total_elements = flattened_arr.size
+
+    num_elements_to_flip = int(total_elements * lapse_rate)
+
+    # Ensure we don't try to flip more elements than available
+    if num_elements_to_flip > total_elements:
+        num_elements_to_flip = total_elements
+
+    # Get random indices to flip without replacement
+    indices_to_flip = np.random.choice(total_elements, size=num_elements_to_flip, replace=False)
+
+    # Create a copy to avoid modifying the original array in-place
+    result_arr = flattened_arr.copy()
+
+    # Flip the sign of the selected elements
+    result_arr[indices_to_flip] *= -1
+
+    # Reshape back to the original shape
+    return result_arr.reshape(original_shape)
+
+
 class CausalEstimator:
-    def __init__(self, model, angle_gam_data_path, unif_fn_data_path, mu_p=None, sigma_p=None, num_sim=10000):
+    def __init__(self, model, angle_gam_data_path, unif_fn_data_path, mu_p=None, sigma_p=None, num_sim=10000, lapse_rate=0.0, unif_map_key='pdf'):
         self.model = model
         # Load the GAM.
         with open(angle_gam_data_path, 'rb') as file:
@@ -38,12 +77,13 @@ class CausalEstimator:
         with open(unif_fn_data_path, 'rb') as file:
             unif_fn_data = pickle.load(file)
         # Initialise uniformising function map.
-        self.unif_map = usu.UnifMap(data=unif_fn_data)
+        self.unif_map = usu.UnifMap(data=unif_fn_data, pdf_key=unif_map_key)
         self.unif_map.get_cdf_and_inverse_cdf()
         self.mu_p=mu_p
         self.sigma_p=sigma_p
         self.num_sim = num_sim
         self.grid = np.linspace(-np.pi, np.pi, num=250)
+        self.lapse_rate = lapse_rate
 
     def get_vm_samples(self, num_sim, mu_t, mu_s_n, kappa1, kappa2):
         """
@@ -131,6 +171,8 @@ class CausalEstimator:
                                                                     sigma_p=self.sigma_p,
                                                                     pi_c=p_common)
         # Find circular mean across "optimal" angle space estimates for each sample.
+        if self.lapse_rate > 0:
+            responses = (flip_sign_of_random_proportion(responses[0], lapse_rate=self.lapse_rate),flip_sign_of_random_proportion(responses[1], lapse_rate=self.lapse_rate))
         mean_t_est = circmean(responses[0], 
                                 low=-np.pi, high=np.pi, axis=0)
         mean_sn_est = circmean(responses[1],

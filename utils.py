@@ -4,18 +4,24 @@ from typing import Tuple
 from scipy.stats import mode
 
 
+def reflect_cond(t, s_n):
+    if (np.sign(t) == np.sign(s_n)) or (abs(s_n) < 1e-6):
+        return False
+    return True
+
 def get_filtered_gam(gam_data, max_circ_dist, filter_wrong_quad=False, r_n_key='r_n'):
-    filtered_gam_data = {'s_n': [], 'r_n': []}
-    for s_n, r_n in zip(gam_data['s_n'], gam_data[r_n_key]):
+    filtered_gam_data = {'reg_dict': {key: [] for key in gam_data['reg_dict'].keys()}}
+    for i in range(len(gam_data['reg_dict']['s_n'])):
+        s_n, r_n = gam_data['reg_dict']['s_n'][i], gam_data['reg_dict'][r_n_key][i]
         if circular_dist(s_n, r_n) < max_circ_dist:
             if filter_wrong_quad:
                 # TODO: should we use the 4 quadrants or rather acc for the doubling of angles?
                 if np.sign(s_n) != np.sign(r_n):
                     continue
-            filtered_gam_data['s_n'].append(s_n)
-            filtered_gam_data['r_n'].append(r_n)
-    filtered_gam_data['s_n'] = np.array(filtered_gam_data['s_n'])
-    filtered_gam_data['r_n'] = np.array(filtered_gam_data['r_n'])
+            for key in filtered_gam_data['reg_dict'].keys():
+                filtered_gam_data['reg_dict'][key].append(gam_data['reg_dict'][key][i])
+    for key in filtered_gam_data['reg_dict'].keys():
+        filtered_gam_data['reg_dict'][key] = np.array(filtered_gam_data['reg_dict'][key])
     return filtered_gam_data
 
 

@@ -35,7 +35,10 @@ class KappaFitter:
                  local_run,
                  user,
                  t_index,
-                 estimates_to_fit):
+                 estimates_to_fit,
+                 lapse_rate,
+                 unif_map_key='pdf',
+                 reflect=False):
         self.ut = ut
         self.us_n = us_n
         self.r_n = r_n
@@ -49,6 +52,9 @@ class KappaFitter:
         self.user = user
         self.t_index = t_index
         self.estimates_to_fit = estimates_to_fit
+        self.reflect = reflect
+        self.lapse_rate = lapse_rate
+        self.unif_map_key = unif_map_key
 
     def find_optimal_kappas(self):
         """
@@ -95,11 +101,11 @@ class KappaFitter:
                 task_idx += 1
 
         grid_sz = self.r_n.shape[0]
-        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
+        with open(f'./learned_data/task_metadata_{grid_sz}_t{self.t_index}_{self.reflect}.pkl', 'wb') as f:
             pickle.dump(task_metadata, f)
 
         if self.local_run:
-            initargs = (self.angle_gam_data_path, self.unif_fn_data_path)
+            initargs = (self.angle_gam_data_path, self.unif_fn_data_path, self.lapse_rate, self.unif_map_key)
             logger.debug("Before creating multiprocessing pool")
             num_processes = os.cpu_count()
             with mp.Pool(processes=num_processes,
@@ -204,6 +210,8 @@ class KappaFitter:
 
         mu1 = ut[mean_indices]
         mu2 = us_n[mean_indices]
+        if self.reflect and utils.reflect_cond(mu1, mu2):
+            mu1 = -mu1
         grid_sz = ut.shape[0]
 
         np.random.seed(os.getpid())
@@ -268,7 +276,7 @@ class KappaFitter:
                                 f'optimal_kappa1_{est}': np.round(kappa1_flat[kappas_min_indices], 4),
                                 f'optimal_kappa2_{est}': np.round(kappa2_flat[kappas_min_indices], 4)})
         if max_to_save > 0:
-            with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}.pkl', 'wb') as f:
+            with open (f'./learned_data/optimal_kappa_errors/errors_dict_{task_idx}_{grid_sz}_t{self.t_index}_{self.reflect}.pkl', 'wb') as f:
                 pickle.dump(errors_dict, f)
         del errors_dict
         del t_samples, s_n_samples
@@ -310,14 +318,16 @@ def get_folder_size(folder_path):
             continue
     return total_size
 
-def init_worker(angle_gam_data_path, unif_fn_data_path):
+def init_worker(angle_gam_data_path, unif_fn_data_path, lapse_rate, unif_map_key):
     global causal_inference_estimator
     global unif_map
 
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
-        unif_fn_data_path=unif_fn_data_path)
+        unif_fn_data_path=unif_fn_data_path,
+        lapse_rate=lapse_rate,
+        unif_map_key=unif_map_key)
     unif_map = causal_inference_estimator.unif_map
 
 
@@ -359,8 +369,16 @@ if __name__ == '__main__':
                         help='True if grid pairs are selected based on cue combination errors')
     parser.add_argument('--use_respone_mean_map', type=bool, default=False,
                         help='True if the mean response is use as internal space map')
+    parser.add_argument('--use_flexible_mean_map', type=bool, default=False,
+                        help='True if the uniform_base_flexible_means_120_final_fits is use as internal space map')
     parser.add_argument('--use_unif_internal_space', type=int, default=0,
                         help='If nonzero, number of s_n, t values to be selected as uniform values in internal space')
+    parser.add_argument('--use_filtered_data', type=int, default=0,
+                        help='If nonzero, number of s_n, t values to be selected as uniform values from filtered gam in angle space')
+    parser.add_argument('--lapse_rate', type=float, default=0.0,
+                        help="Lapse rate for the causal inference model. Defaults to 0")
+    parser.add_argument('--reflect', type=bool, default=False,
+                        help="If True, regressor is reflect when in the wrong quadrant")
     D = 250
 
     args = parser.parse_args()
@@ -378,13 +396,26 @@ if __name__ == '__main__':
     local_run = args.local_run
     use_high_cc_error_pairs = args.use_high_cc_error_pairs
     use_unif_internal_space = args.use_unif_internal_space
+    use_filtered_data = args.use_filtered_data
     data_pref = '.'
+    data_type_pref = ''
     use_respone_mean_map = args.use_respone_mean_map
+    unif_map_key = 'pdf'
     if not local_run:
         data_pref = '/nfs/ghome/live/kdusterwald/Documents/causal_inf'
-    angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
+    if use_filtered_data:
+        data_type_pref = '_filtered'
+        angle_gam_data_path = f'{data_pref}/filtered_data_gam.pkl'
+    else:
+        angle_gam_data_path = f'{data_pref}/base_bayesian_contour_1_circular_gam.pkl'
+    unif_pref = ''
     if use_respone_mean_map:
+        unif_pref = '_mean_resp'
         unif_fn_data_path = f'{data_pref}/mean_response_map.pkl'
+    elif args.use_flexible_mean_map:
+        unif_pref = '_fl_means'
+        unif_map_key = 'mean_pdf'
+        unif_fn_data_path = f'{data_pref}/uniform_base_flexible_means_120_final_fits.pkl' 
     else:
         unif_fn_data_path = f'{data_pref}/uniform_model_base_inv_kappa_free.pkl'
 
@@ -393,17 +424,19 @@ if __name__ == '__main__':
     causal_inference_estimator = forward_models_causal_inference.CausalEstimator(
         model=CustomCausalInference(decision_rule='mean'),
         angle_gam_data_path=angle_gam_data_path,
-        unif_fn_data_path=unif_fn_data_path)
+        unif_fn_data_path=unif_fn_data_path,
+        lapse_rate=args.lapse_rate,
+        unif_map_key=unif_map_key)
     unif_map = causal_inference_estimator.unif_map
 
     if use_high_cc_error_pairs:
-        assert (use_unif_internal_space == 0)
+        assert (use_unif_internal_space == 0) and (use_filtered_data == 0)
         s_n, t, r_n = utils.get_cc_high_error_pairs(causal_inference_estimator.grid,
                                                     causal_inference_estimator.gam_data,
                                                     max_samples=1)
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
     elif use_unif_internal_space != 0:
-        assert (use_unif_internal_space > 0)
+        assert (use_unif_internal_space > 0) and (use_filtered_data == 0)
         # Select indices from quadrant [-np.pi/2, 0)
         indices = 250 // 4 + utils.select_evenly_spaced_integers(num=use_unif_internal_space,
                                                                 start=0,
@@ -446,6 +479,26 @@ if __name__ == '__main__':
             plt.clf()
         print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
         plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n', image_path=f'./figs/r_n_heatmap_{len(r_n)}_t{t_index}.png')
+    elif use_filtered_data != 0:
+        stimuli = np.linspace(-np.pi, np.pi, causal_inference_estimator.gam_data['full_pdf_mat'].shape[0])
+        grid_indices_selected_stimuli = utils.select_evenly_spaced_integers(num=use_filtered_data,
+                                                                start=0,
+                                                                end=len(stimuli)-1)
+        t, s_n = np.meshgrid(stimuli[grid_indices_selected_stimuli],
+                             stimuli[grid_indices_selected_stimuli],
+                             indexing='ij')
+        r_n = causal_inference_estimator.gam_data['full_pdf_mat'][grid_indices_selected_stimuli, :, t_index]
+        r_n = r_n[:, grid_indices_selected_stimuli]
+        t, s_n = np.meshgrid(stimuli[grid_indices_selected_stimuli],
+                             stimuli[grid_indices_selected_stimuli],
+                             indexing='ij')
+        if local_run:
+            plt.scatter(s_n, r_n, label='r_n as fn of s_n')
+            plt.legend()
+            plt.savefig(f'./figs/r_n_{len(r_n)}t_{t_index}_filt_gam.png')
+            plt.clf()
+        print(f'Shapes of s_n, t, and r_n means: {s_n.shape, t.shape, r_n.shape}')
+        plots.heatmap_f_s_n_t(f_s_n_t=r_n, s_n=s_n, t=t, f_name='r_n', image_path=f'./figs/r_n_heatmap_{len(r_n)}_t{t_index}_filt_gam.png')
     else:
         s_n, t, r_n = utils.get_s_n_and_t(causal_inference_estimator.grid,
                                           causal_inference_estimator.gam_data)
@@ -465,11 +518,11 @@ if __name__ == '__main__':
     s_n, t, r_n = s_n.flatten(), t.flatten(), r_n.flatten()
     us_n = unif_map.angle_space_to_unif_space(s_n)
     ut = unif_map.angle_space_to_unif_space(t)
-    kappa1 = np.linspace(start=np.log10(min_kappa1),
-                         stop=np.log10(max_kappa1),
+    kappa1 = np.linspace(start=min_kappa1,
+                         stop=max_kappa1,
                          num=num_kappa1s)
-    kappa2 = np.linspace(start=np.log10(min_kappa2),
-                         stop=np.log10(max_kappa2),
+    kappa2 = np.linspace(start=min_kappa2,
+                         stop=max_kappa2,
                          num=num_kappa2s)
     kappa1_grid, kappa2_grid = np.meshgrid(kappa1, kappa2, indexing='ij')
     kappa1_flat, kappa2_flat = kappa1_grid.flatten(), kappa2_grid.flatten()
@@ -480,7 +533,12 @@ if __name__ == '__main__':
         plt.legend()
         plt.savefig(f'./figs/kappa_values_{len(r_n)}.png')
         plt.clf()
-
+        plt.scatter(s_n, r_n, label='rn as fn of sn')
+        plt.scatter(t, r_n, label='rn as fn of t')
+        plt.scatter(s_n, s_n)
+        plt.legend()    
+        plt.savefig(f'./figs/data_points_{len(r_n)}.png')
+        
     fitter = KappaFitter(ut=ut,
                          us_n=us_n,
                          r_n=r_n,
@@ -493,7 +551,10 @@ if __name__ == '__main__':
                          local_run=local_run,
                          user=user,
                          t_index=t_index,
-                         estimates_to_fit=('sn', 't'))
+                         estimates_to_fit=('sn', 't'),
+                         lapse_rate=args.lapse_rate,
+                         unif_map_key=unif_map_key,
+                         reflect=args.reflect)
 
     optimal_kappa_pairs, min_error_for_idx_pc = fitter.find_optimal_kappas()
     print(f'Completed with optimal results = {optimal_kappa_pairs}')
@@ -510,16 +571,15 @@ if __name__ == '__main__':
             plt.savefig(f'./figs/min_error_for_idx_{est}_t{t_index}.png')
             plt.clf()
     grid_sz = s_n.shape[0]
-    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/optimal_kappa_pairs_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(optimal_kappa_pairs, f)
-    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_pc_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx_pc, f)
-    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}.pkl', 'wb') as f:
+    with open(f'./learned_data/min_error_for_idx_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.pkl', 'wb') as f:
         pickle.dump(min_error_for_idx, f)
-    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}.npy', arr=s_n)
-    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}.npy', arr=t)
-    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}.npy', arr=r_n)
-    # import pdb; pdb.set_trace()
+    np.save(f'./learned_data/selected_s_n_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=s_n)
+    np.save(f'./learned_data/selected_t_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=t)
+    np.save(f'./learned_data/selected_r_n_{grid_sz}_t{t_index}_{args.reflect}{unif_pref}{data_type_pref}.npy', arr=r_n)
     best_errors = {idx: min(min_error_for_idx['sn'][idx], min_error_for_idx['t'][idx]) for idx in min_error_for_idx['sn'].keys()}
     print(f'Max error = {max(best_errors.values())}, '
                  f'avg error: {np.mean(list(best_errors.values()))}')
